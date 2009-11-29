@@ -47,7 +47,7 @@ class Horde_Kolab_Storage_Driver_Imap extends Horde_Kolab_Storage_Driver
         } else {
             $driver = 'socket';
         }
-
+        $params['debug'] = '/tmp/imap.log';
         $this->_imap = Horde_Imap_Client::factory($driver, $params);
     }
 

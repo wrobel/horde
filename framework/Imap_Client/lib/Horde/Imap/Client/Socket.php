@@ -3148,16 +3148,16 @@ class Horde_Imap_Client_Socket extends Horde_Imap_Client_Base
         }
 
         if (count($cmd_options) == 1) {
-            $option_string = $cmd_options[0];
-        } else {
-            $option_string = '(' . join(' ', $cmd_options) . ')';
+            $option_string = ' ' . $cmd_options[0];
+        } else if (count($cmd_options) > 1) {
+            $option_string = ' (' . join(' ', $cmd_options) . ')';
         }
 
         $entry_string = (count($entries) == 1)
             ? $this->utils->escape($entries[0]) . ' ' . $this->utils->escape($single_type)
             : '(' . join(' ', $entries) . ') ' . $single_type;
 
-        $this->_sendLine($cmd . $this->utils->escape($mailbox) . ' ' . $option_string . ' ' . $entry_string);
+        $this->_sendLine($cmd . $this->utils->escape($mailbox) .  $option_string . ' ' . $entry_string);
 
         if (!$use_rfc5464) {
             // TODO: Honor maxsize and depth options.
