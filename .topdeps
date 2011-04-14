@@ -1,1 +1,4 @@
 t/jonah/share-content
+t/jonah/package-xml
+t/jonah/kolab-storage-support
+t/kolab/config/use-sql-shares

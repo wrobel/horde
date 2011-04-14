@@ -1,6 +1,6 @@
 From: Gunnar Wrobel <p@rdus.de>
-Subject: [PATCH] t/jonah/package-xml
+Subject: [PATCH] t/jonah/kolab
 
-Updated package.xml for jonah.
+Topgit HEAD for Kolab support in Jonah.
 
 Signed-off-by: Gunnar Wrobel <p@rdus.de>
