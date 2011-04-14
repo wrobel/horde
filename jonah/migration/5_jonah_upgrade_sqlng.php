@@ -1,21 +1,15 @@
 <?php
 /**
- * @author   Ian Roth <iron_hat@hotmail.com>
- * @category Horde
- * @license 
- * @package  Jonah
- */
-
-require_once dirname(__FILE__) . '/../lib/Jonah.php';
-
-/**
  * Adds tables for the Sqlng share driver.
  *
  * Copyright 2011 The Horde Project (http://www.horde.org/)
  *
+ * See the enclosed file LICENSE for license information (ASL).  If you
+ * did not receive this file, see http://www.horde.org/licenses/asl.php.
+ *
  * @author   Ian Roth <iron_hat@hotmail.com>
  * @category Horde
- * @license
+ * @license  http://www.horde.org/licenses/asl.php ASL
  * @package  Jonah
  */
 class JonahUpgradeSqlng extends Horde_Db_Migration_Base
@@ -34,17 +28,14 @@ class JonahUpgradeSqlng extends Horde_Db_Migration_Base
         $t->column('perm_creator_' . Horde_Perms::READ, 'boolean', array('default' => false, 'null' => false));
         $t->column('perm_creator_' . Horde_Perms::EDIT, 'boolean', array('default' => false, 'null' => false));
         $t->column('perm_creator_' . Horde_Perms::DELETE, 'boolean', array('default' => false, 'null' => false));
-        $t->column('perm_creator_' . Jonah::PERMS_DELEGATE, 'boolean', array('default' => false, 'null' => false));
         $t->column('perm_default_' . Horde_Perms::SHOW, 'boolean', array('default' => false, 'null' => false));
         $t->column('perm_default_' . Horde_Perms::READ, 'boolean', array('default' => false, 'null' => false));
         $t->column('perm_default_' . Horde_Perms::EDIT, 'boolean', array('default' => false, 'null' => false));
         $t->column('perm_default_' . Horde_Perms::DELETE, 'boolean', array('default' => false, 'null' => false));
-        $t->column('perm_default_' . Jonah::PERMS_DELEGATE, 'boolean', array('default' => false, 'null' => false));
         $t->column('perm_guest_' . Horde_Perms::SHOW, 'boolean', array('default' => false, 'null' => false));
         $t->column('perm_guest_' . Horde_Perms::READ, 'boolean', array('default' => false, 'null' => false));
         $t->column('perm_guest_' . Horde_Perms::EDIT, 'boolean', array('default' => false, 'null' => false));
         $t->column('perm_guest_' . Horde_Perms::DELETE, 'boolean', array('default' => false, 'null' => false));
-        $t->column('perm_guest_' . Jonah::PERMS_DELEGATE, 'boolean', array('default' => false, 'null' => false));
         $t->column('attribute_name', 'string', array('limit' => 255, 'null' => false));
         $t->column('attribute_desc', 'string', array('limit' => 255));
         $t->column('attribute_slug', 'string', array('limit' => 64));
@@ -64,17 +55,14 @@ class JonahUpgradeSqlng extends Horde_Db_Migration_Base
         $this->addIndex('jonah_sharesng', array('perm_creator_' . Horde_Perms::READ));
         $this->addIndex('jonah_sharesng', array('perm_creator_' . Horde_Perms::EDIT));
         $this->addIndex('jonah_sharesng', array('perm_creator_' . Horde_Perms::DELETE));
-        $this->addIndex('jonah_sharesng', array('perm_creator_' . Jonah::PERMS_DELEGATE));
         $this->addIndex('jonah_sharesng', array('perm_default_' . Horde_Perms::SHOW));
         $this->addIndex('jonah_sharesng', array('perm_default_' . Horde_Perms::READ));
         $this->addIndex('jonah_sharesng', array('perm_default_' . Horde_Perms::EDIT));
         $this->addIndex('jonah_sharesng', array('perm_default_' . Horde_Perms::DELETE));
-        $this->addIndex('jonah_sharesng', array('perm_default_' . Jonah::PERMS_DELEGATE));
         $this->addIndex('jonah_sharesng', array('perm_guest_' . Horde_Perms::SHOW));
         $this->addIndex('jonah_sharesng', array('perm_guest_' . Horde_Perms::READ));
         $this->addIndex('jonah_sharesng', array('perm_guest_' . Horde_Perms::EDIT));
         $this->addIndex('jonah_sharesng', array('perm_guest_' . Horde_Perms::DELETE));
-        $this->addIndex('jonah_sharesng', array('perm_guest_' . Jonah::PERMS_DELEGATE));
 
         $t = $this->createTable('jonah_sharesng_groups', array('primaryKey' => false));
         $t->column('share_id', 'integer', array('null' => false));
@@ -83,7 +71,6 @@ class JonahUpgradeSqlng extends Horde_Db_Migration_Base
         $t->column('perm_' . Horde_Perms::READ, 'boolean', array('default' => false, 'null' => false));
         $t->column('perm_' . Horde_Perms::EDIT, 'boolean', array('default' => false, 'null' => false));
         $t->column('perm_' . Horde_Perms::DELETE, 'boolean', array('default' => false, 'null' => false));
-        $t->column('perm_' . Jonah::PERMS_DELEGATE, 'boolean', array('default' => false, 'null' => false));
         $t->end();
 
         $this->addIndex('jonah_sharesng_groups', array('share_id'));
@@ -92,7 +79,6 @@ class JonahUpgradeSqlng extends Horde_Db_Migration_Base
         $this->addIndex('jonah_sharesng_groups', array('perm_' . Horde_Perms::READ));
         $this->addIndex('jonah_sharesng_groups', array('perm_' . Horde_Perms::EDIT));
         $this->addIndex('jonah_sharesng_groups', array('perm_' . Horde_Perms::DELETE));
-        $this->addIndex('jonah_sharesng_groups', array('perm_' . Jonah::PERMS_DELEGATE));
 
         $t = $this->createTable('jonah_sharesng_users', array('primaryKey' => false));
         $t->column('share_id', 'integer', array('null' => false));
@@ -101,7 +87,6 @@ class JonahUpgradeSqlng extends Horde_Db_Migration_Base
         $t->column('perm_' . Horde_Perms::READ, 'boolean', array('default' => false, 'null' => false));
         $t->column('perm_' . Horde_Perms::EDIT, 'boolean', array('default' => false, 'null' => false));
         $t->column('perm_' . Horde_Perms::DELETE, 'boolean', array('default' => false, 'null' => false));
-        $t->column('perm_' . Jonah::PERMS_DELEGATE, 'boolean', array('default' => false, 'null' => false));
         $t->end();
 
         $this->addIndex('jonah_sharesng_users', array('share_id'));
@@ -110,7 +95,6 @@ class JonahUpgradeSqlng extends Horde_Db_Migration_Base
         $this->addIndex('jonah_sharesng_users', array('perm_' . Horde_Perms::READ));
         $this->addIndex('jonah_sharesng_users', array('perm_' . Horde_Perms::EDIT));
         $this->addIndex('jonah_sharesng_users', array('perm_' . Horde_Perms::DELETE));
-        $this->addIndex('jonah_sharesng_users', array('perm_' . Jonah::PERMS_DELEGATE));
 
         $this->dataUp();
     }
@@ -131,8 +115,7 @@ class JonahUpgradeSqlng extends Horde_Db_Migration_Base
         $perms = array(Horde_Perms::SHOW,
                        Horde_Perms::READ,
                        Horde_Perms::EDIT,
-                       Horde_Perms::DELETE,
-                       Jonah::PERMS_DELEGATE);
+                       Horde_Perms::DELETE);
 
         $sql = 'INSERT INTO jonah_sharesng (share_id, share_name, share_owner, share_flags, attribute_name, attribute_desc, attribute_color';
         $count = 0;

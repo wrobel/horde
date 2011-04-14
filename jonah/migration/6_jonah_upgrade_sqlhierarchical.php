@@ -1,21 +1,15 @@
 <?php
 /**
- * @author   Ian Roth <iron_hat@hotmail.com>
- * @category Horde
- * @license 
- * @package  Jonah
- */
-
-require_once dirname(__FILE__) . '/../lib/Jonah.php';
-
-/**
  * Add hierarchcal related columns to the legacy sql share driver
  *
  * Copyright 2011 The Horde Project (http://www.horde.org/)
  *
+ * See the enclosed file LICENSE for license information (ASL).  If you
+ * did not receive this file, see http://www.horde.org/licenses/asl.php.
+ *
  * @author   Ian Roth <iron_hat@hotmail.com>
  * @category Horde
- * @license
+ * @license  http://www.horde.org/licenses/asl.php ASL
  * @package  Jonah
  */
 class JonahUpgradeSqlhierarchical extends Horde_Db_Migration_Base
