@@ -1,0 +1,6 @@
+From: Gunnar Wrobel <p@rdus.de>
+Subject: [PATCH] t/kolab/include-jonah
+
+Include jonah into the applications with Kolab support.
+
+Signed-off-by: Gunnar Wrobel <p@rdus.de>
