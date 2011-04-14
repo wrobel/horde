@@ -1,6 +1,6 @@
-From: Ian Roth <ian@hot-rain.com>
-Subject: [PATCH] t/jonah/share-content
+From: Gunnar Wrobel <p@rdus.de>
+Subject: [PATCH] t/jonah/package-xml
 
-Converts jonah to use shares as a basis for feeds.
+Updated package.xml for jonah.
 
 Signed-off-by: Gunnar Wrobel <p@rdus.de>
