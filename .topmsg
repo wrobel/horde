@@ -1,0 +1,6 @@
+From: Gunnar Wrobel <p@rdus.de>
+Subject: [PATCH] t/kolab/config/use-sql-shares
+
+Switch to SQL shares for test purposes.
+
+Signed-off-by: Gunnar Wrobel <p@rdus.de>
