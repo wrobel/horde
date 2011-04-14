@@ -1,0 +1,6 @@
+From: Ian Roth <ian@hot-rain.com>
+Subject: [PATCH] t/jonah/share-content
+
+Converts jonah to use shares as a basis for feeds.
+
+Signed-off-by: Gunnar Wrobel <p@rdus.de>
