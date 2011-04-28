@@ -174,7 +174,7 @@ class IMP_Mailbox_List implements Countable, Serializable
                     if ($cache) {
                         try {
                             $preview_info = $cache->get($mbox, array_keys($ids), array('IMPpreview', 'IMPpreviewc'));
-                        } catch (Horde_Imap_Client_Exception $e) {}
+                        } catch (IMP_Imap_Exception $e) {}
                     }
                 }
 
@@ -219,7 +219,7 @@ class IMP_Mailbox_List implements Countable, Serializable
                     $status = $imp_imap->status($mbox, Horde_Imap_Client::STATUS_UIDVALIDITY);
                     $cache->set($mbox, $tostore, $status['uidvalidity']);
                 }
-            } catch (Horde_Imap_Client_Exception $e) {}
+            } catch (IMP_Imap_Exception $e) {}
         }
 
         return array(
@@ -262,8 +262,8 @@ class IMP_Mailbox_List implements Countable, Serializable
                     $this->_sorted = array_merge($this->_sorted, $ob->uids);
                     $this->_sortedMbox = array_merge($this->_sortedMbox, array_fill(0, count($ob->uids), strval($ob->mbox)));
                 }
-            } catch (Horde_Imap_Client_Exception $e) {
-                $GLOBALS['notification']->push(_("Mailbox listing failed") . ': ' . $e->getMessage(), 'horde.error');
+            } catch (IMP_Imap_Exception $e) {
+                $e->notify(_("Mailbox listing failed") . ': ' . $e->getMessage());
             }
         } else {
             $sortpref = $this->_mailbox->getSort(true);
@@ -286,8 +286,8 @@ class IMP_Mailbox_List implements Countable, Serializable
                         $res['match']->reverse();
                     }
                     $this->_sorted = $res['match']->ids;
-                } catch (Horde_Imap_Client_Exception $e) {
-                    $GLOBALS['notification']->push(_("Mailbox listing failed") . ': ' . $e->getMessage(), 'horde.error');
+                } catch (IMP_Imap_Exception $e) {
+                    $e->notify(_("Mailbox listing failed") . ': ' . $e->getMessage());
                 }
             }
         }
@@ -359,7 +359,7 @@ class IMP_Mailbox_List implements Countable, Serializable
             try {
                 $status_res = $imp_imap->status($this->_mailbox, $type == 'recent' ? Horde_Imap_Client::STATUS_RECENT : Horde_Imap_Client::STATUS_UNSEEN);
                 return $status_res[$type];
-            } catch (Horde_Imap_Client_Exception $e) {
+            } catch (IMP_Imap_Exception $e) {
                 return 0;
             }
         }
@@ -373,7 +373,7 @@ class IMP_Mailbox_List implements Countable, Serializable
         try {
             $res = $imp_imap->search($this->_mailbox, $criteria, array('results' => array($results), 'sequence' => !$uid));
             return $count ? $res['count'] : $res;
-        } catch (Horde_Imap_Client_Exception $e) {
+        } catch (IMP_Imap_Exception $e) {
             return $count ? 0 : array();
         }
     }
@@ -456,7 +456,7 @@ class IMP_Mailbox_List implements Countable, Serializable
             try {
                 $status = $GLOBALS['injector']->getInstance('IMP_Factory_Imap')->create()->status($this->_mailbox, Horde_Imap_Client::STATUS_MESSAGES);
                 $ret['anymsg'] = (bool)$status['messages'];
-            } catch (Horde_Imap_Client_Exception $e) {
+            } catch (IMP_Imap_Exception $e) {
                 $ret['anymsg'] = false;
             }
         }
@@ -490,7 +490,7 @@ class IMP_Mailbox_List implements Countable, Serializable
 
         case IMP::MAILBOX_START_FIRSTUNSEEN:
             $imp_imap = $GLOBALS['injector']->getInstance('IMP_Factory_Imap')->create();
-            if ($imp_imap->pop3) {
+            if (!$imp_imap->accessMailbox($this->_mailbox, IMP_Imap::ACCESS_SORT)) {
                 return 1;
             }
 
@@ -504,7 +504,7 @@ class IMP_Mailbox_List implements Countable, Serializable
                     if (!is_null($res['firstunseen'])) {
                         return $res['firstunseen'];
                     }
-                } catch (Horde_Imap_Client_Exception $e) {}
+                } catch (IMP_Imap_Exception $e) {}
 
                 return 1;
             }
@@ -515,7 +515,7 @@ class IMP_Mailbox_List implements Countable, Serializable
                 : ($this->getArrayIndex($unseen_msgs['min']) + 1);
 
         case IMP::MAILBOX_START_LASTUNSEEN:
-            if ($GLOBALS['injector']->getInstance('IMP_Factory_Imap')->create()->pop3) {
+            if (!$imp_imap->accessMailbox($this->_mailbox, IMP_Imap::ACCESS_SORT)) {
                 return 1;
             }
 
@@ -537,8 +537,8 @@ class IMP_Mailbox_List implements Countable, Serializable
         if (is_null($this->_threadob)) {
             try {
                 $this->_threadob = $GLOBALS['injector']->getInstance('IMP_Factory_Imap')->create()->thread($this->_mailbox, array('criteria' => $GLOBALS['session']->get('imp', 'imap_thread')));
-            } catch (Horde_Imap_Client_Exception $e) {
-                $GLOBALS['notification']->push($e);
+            } catch (IMP_Imap_Exception $e) {
+                $e->notify();
                 return new Horde_Imap_Client_Data_Thread(array(), 'uid');
             }
         }
@@ -618,6 +618,28 @@ class IMP_Mailbox_List implements Countable, Serializable
         unset($m[0]);
 
         return array('s' => $s, 'm' => $m);
+    }
+
+    /**
+     * Generate an IMP_Indices object out of the contents of this mailbox.
+     *
+     * @return IMP_Indices  An indices object.
+     */
+    public function getIndicesOb()
+    {
+        $this->_buildMailbox();
+        $ob = new IMP_Indices();
+
+        if ($this->_mailbox->search) {
+            reset($this->_sorted);
+            while (list($k, $v) = each($this->_sorted)) {
+                $ob->add($this->_sortedMbox[$k], $v);
+            }
+        } else {
+            $ob->add($this->_mailbox, $this->_sorted);
+        }
+
+        return $ob;
     }
 
     /**

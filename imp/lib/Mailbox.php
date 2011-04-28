@@ -23,11 +23,13 @@
  *                            are replaced with localized strings and
  *                            namespace information is removed.
  * @property boolean $drafts  Is this a Drafts mailbox?
+ * @property boolean $editquery  Can this search query be edited?
  * @property boolean $editvfolder  Can this virtual folder be edited?
  * @property boolean $exists  Does this mailbox exist on the IMAP server?
  * @property boolean $fixed  Is this mailbox fixed (i.e. unchangable)?
  * @property string $form_to  Converts this mailbox to a form representation.
  * @property boolean $is_open  Is this level expanded?
+ * @property boolean $is_trash  Is this a trash folder?
  * @property object $icon  Icon information for the mailbox. Properties:
  *   - alt: (string) The alt text for the icon.
  *   - class: (string) The CSS class name.
@@ -54,6 +56,7 @@
  *             polled.
  * @property string $pref_from  Convert mailbox name from preference storage.
  * @property string $pref_to  Convert mailbox name to preference storage.
+ * @property boolean $query  Is this a search query?
  * @property boolean $readonly  Is this mailbox read-only?
  * @property boolean $search  Is this a search mailbox?
  * @property boolean $special  Is this is a "special" element?
@@ -231,6 +234,9 @@ class IMP_Mailbox implements Serializable
             $special = $this->getSpecialMailboxes();
             return ($this->_mbox == $special[self::SPECIAL_DRAFTS]);
 
+        case 'editquery':
+            return $injector->getInstance('IMP_Search')->isQuery($this->_mbox, true);
+
         case 'editvfolder':
             return $injector->getInstance('IMP_Search')->isVFolder($this->_mbox, true);
 
@@ -246,7 +252,7 @@ class IMP_Mailbox implements Serializable
 
             try {
                 return (bool)$injector->getInstance('IMP_Factory_Imap')->create()->listMailboxes($this->_mbox, array('flat' => true));
-            } catch (Horde_Imap_Client_Exception $e) {
+            } catch (IMP_Imap_Exception $e) {
                 return false;
             }
 
@@ -259,6 +265,9 @@ class IMP_Mailbox implements Serializable
 
         case 'is_open':
             return $injector->getInstance('IMP_Imap_Tree')->isOpen($this->_mbox);
+
+        case 'is_trash':
+            return (self::getPref('trash_folder') == $this) || $this->vtrash;
 
         case 'icon':
             return $this->_getIcon();
@@ -331,7 +340,7 @@ class IMP_Mailbox implements Serializable
                     $info->msgs = intval($msgs_info['messages']);
                     $info->unseen = intval($msgs_info['unseen']);
                 }
-            } catch (Horde_Imap_Client_Exception $e) {}
+            } catch (IMP_Imap_Exception $e) {}
 
             return $info;
 
@@ -345,8 +354,11 @@ class IMP_Mailbox implements Serializable
         case 'pref_to':
             return $this->prefTo($this->_mbox);
 
+        case 'query':
+            return $injector->getInstance('IMP_Search')->isQuery($this->_mbox);
+
         case 'readonly':
-            return $injector->getInstance('IMP_Factory_Imap')->create()->isReadOnly($this);
+            return $injector->getInstance('IMP_Factory_Imap')->create()->accessMailbox($this, IMP_Imap::ACCESS_READONLY);
 
         case 'search':
             return $injector->getInstance('IMP_Search')->isSearchMbox($this->_mbox);
@@ -395,7 +407,7 @@ class IMP_Mailbox implements Serializable
                     !$this->search);
 
         case 'uidvalid':
-            return $injector->getInstance('IMP_Factory_Imap')->create()->checkUidvalidity($this->_mbox);
+            return $injector->getInstance('IMP_Factory_Imap')->create()->checkUidvalidity($this);
 
         case 'value':
             return $this->_mbox;
@@ -480,10 +492,8 @@ class IMP_Mailbox implements Serializable
             'dir' => isset($entry['d']) ? $entry['d'] : $prefs->getValue('sortdir'),
         );
 
-        /* Restrict POP3 sorting to sequence only.  Although possible to
-         * abstract other sorting methods, all other methods require a
-         * download of all messages, which is too much overhead.*/
-        if ($GLOBALS['injector']->getInstance('IMP_Factory_Imap')->create()->pop3) {
+        /* Restrict to sequence sorting only. */
+        if (!$GLOBALS['injector']->getInstance('IMP_Factory_Imap')->create()->accessMailbox($this, IMP_Imap::ACCESS_SORT)) {
             $ob['by'] = Horde_Imap_Client::SORT_SEQUENCE;
             return $ob;
         }
@@ -655,12 +665,12 @@ class IMP_Mailbox implements Serializable
     static public function getSpecialMailboxes()
     {
         if (!self::$_specialCache) {
-            self::$_specialCache = array(
+            self::$_specialCache = array_filter(array(
                 self::SPECIAL_DRAFTS => self::getPref('drafts_folder'),
                 self::SPECIAL_SENT => $GLOBALS['injector']->getInstance('IMP_Identity')->getAllSentmailFolders(),
                 self::SPECIAL_SPAM => self::getPref('spam_folder'),
                 self::SPECIAL_TRASH => self::getPref('trash_folder')
-            );
+            ));
         }
 
         return self::$_specialCache;
@@ -741,7 +751,7 @@ class IMP_Mailbox implements Serializable
         $sortpref = $this->getSort(true);
         try {
             return $GLOBALS['injector']->getInstance('IMP_Factory_Imap')->create()->getCacheId($this->_mbox, array($sortpref['by'], $sortpref['dir']));
-        } catch (Horde_Imap_Client_Exception $e) {
+        } catch (IMP_Imap_Exception $e) {
             /* Assume an error means that a mailbox can not be trusted. */
             return strval(new Horde_Support_Randomid());
         }
@@ -776,18 +786,21 @@ class IMP_Mailbox implements Serializable
         }
 
         $ns_info = $this->namespace_info;
-        $delimiter = is_null($ns_info)
-            ? ''
-            : $ns_info['delimiter'];
+        $out = $this->_mbox;
 
-        /* Strip namespace information. */
-        if (!is_null($ns_info) &&
-            !empty($ns_info['name']) &&
-            ($ns_info['type'] == Horde_Imap_Client::NS_PERSONAL) &&
-            substr($this->_mbox, 0, strlen($ns_info['name'])) == $ns_info['name']) {
-            $out = substr($this->_mbox, strlen($ns_info['name']));
-        } else {
-            $out = $this->_mbox;
+        if (!is_null($ns_info)) {
+            /* Return translated namespace information. */
+            if (!empty($ns_info['translate']) && $this->namespace) {
+                $this->_cache['display'] = Horde_String::convertCharset($ns_info['translate'], 'UTF7-IMAP', 'UTF-8');
+                return $this->_cache['display'];
+            }
+
+            /* Strip namespace information. */
+            if (!empty($ns_info['name']) &&
+                ($ns_info['type'] == Horde_Imap_Client::NS_PERSONAL) &&
+                (substr($this->_mbox, 0, strlen($ns_info['name'])) == $ns_info['name'])) {
+                $out = substr($this->_mbox, strlen($ns_info['name']));
+            }
         }
 
         if ($notranslate) {
@@ -825,7 +838,7 @@ class IMP_Mailbox implements Serializable
             if ((($key != 'INBOX') || ($this->_mbox == $out)) &&
                 strpos($this->_mbox, $key) === 0) {
                 $len = strlen($key);
-                if ((strlen($this->_mbox) == $len) || ($this->_mbox[$len] == $delimiter)) {
+                if ((strlen($this->_mbox) == $len) || ($this->_mbox[$len] == (is_null($ns_info) ? '' : $ns_info['delimiter']))) {
                     $out = substr_replace($out, Horde_String::convertCharset($val, 'UTF-8', 'UTF7-IMAP'), 0, $len);
                     break;
                 }
