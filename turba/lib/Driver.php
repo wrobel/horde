@@ -184,8 +184,8 @@ class Turba_Driver implements Countable
                 $cManager = new Horde_Prefs_CategoryManager();
                 $cManager->add($hash['category']['value']);
                 $hash['category'] = $hash['category']['value'];
-            } else {
-                $hash['category'] = $hash['category'];
+            } elseif (is_array($hash['category'])) {
+                $hash['category'] = $hash['category']['value'];
             }
         }
 
@@ -2379,7 +2379,7 @@ class Turba_Driver implements Countable
                 $message->companyname = $value;
                 break;
 
-            case 'departnemt':
+            case 'department':
                 $message->department = $value;
                 break;
 
@@ -2405,8 +2405,12 @@ class Turba_Driver implements Countable
             case 'birthday':
             case 'anniversary':
                 if (!empty($value)) {
-                    $date = new Horde_Date($value);
-                    $message->{$field} = $date;
+                    try {
+                        $date = new Horde_Date($value);
+                        $message->{$field} = $date;
+                    } catch (Horde_Date_Exception $e) {
+                        $message->$field = null;
+                    }
                 } else {
                     $message->$field = null;
                 }

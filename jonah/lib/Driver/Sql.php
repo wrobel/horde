@@ -367,6 +367,37 @@ class Jonah_Driver_Sql extends Jonah_Driver
             $sql .= ' AND story_published IS NOT NULL';
         }
 
+        // Apply tag filtering
+        if (isset($criteria['tags'])) {
+            $sql .= ' AND (';
+            $multiple = false;
+            foreach ($criteria['tags'] as $tag) {
+                if (!empty($criteria['tagIDs'][$tag])) {
+                    if ($multiple) {
+                        $sql .= ' OR ';
+                    }
+                    $sql .= 'tags.tag_id = ?';
+                    $values[] = $criteria['tagIDs'][$tag];
+                    $multiple = true;
+                }
+            }
+            $sql .= ')';
+        }
+
+        if (isset($criteria['alltags'])) {
+            $sql .= ' AND (';
+            $multiple = false;
+            foreach ($criteria['alltags'] as $tag) {
+                if ($multiple) {
+                    $sql .= ' AND ';
+                }
+                $sql .= 'tags.tag_id = ?';
+                $values[] = $criteria['tagIDs'][$tag];
+                $multiple = true;
+            }
+            $sql .= ')';
+        }
+
         // Filter by story author
         if (isset($criteria['author'])) {
             $sql .= ' AND stories.story_author = ?';

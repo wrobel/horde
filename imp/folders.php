@@ -24,7 +24,7 @@ Horde::addScriptFile('folders.js', 'imp');
 
 /* Redirect back to the mailbox if folder use is not allowed. */
 $imp_imap = $injector->getInstance('IMP_Factory_Imap')->create();
-if (!$imp_imap->allowFolders()) {
+if (!$imp_imap->access(IMP_Imap::ACCESS_FOLDERS)) {
     $notification->push(_("Folder use is not enabled."), 'horde.error');
     Horde::url('mailbox.php', true)->redirect();
 }
@@ -226,7 +226,7 @@ case 'folders_empty_mailbox_confirm':
 
             try {
                 $elt_info = $imp_imap->status($val, Horde_Imap_Client::STATUS_MESSAGES);
-            } catch (Horde_Imap_Client_Exception $e) {
+            } catch (IMP_Imap_Exception $e) {
                 $elt_info = null;
             }
 
@@ -369,7 +369,7 @@ if ($a_template->get('javascript')) {
 $a_template->set('create_folder', $injector->getInstance('Horde_Core_Perms')->hasAppPermission('create_folders') && $injector->getInstance('Horde_Core_Perms')->hasAppPermission('max_folders'));
 if ($prefs->getValue('subscribe')) {
     $a_template->set('subscribe', true);
-    $subToggleText = ($showAll) ? _("Hide Unsubscribed") : _("Show All");
+    $subToggleText = ($showAll) ? _("Hide Unsubscribed") : _("Show All Folders");
     $a_template->set('toggle_subscribe', Horde::widget($folders_url_ob->copy()->add(array('actionID' => 'toggle_subscribed_view', 'folders_token' => $folders_token)), $subToggleText, 'widget', '', '', $subToggleText, true));
 }
 $a_template->set('nav_poll', !$prefs->isLocked('nav_poll') && !$prefs->getValue('nav_poll_all'));

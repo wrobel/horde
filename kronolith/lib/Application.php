@@ -44,7 +44,7 @@ class Kronolith_Application extends Horde_Registry_Application
 
     /**
      */
-    public $version = 'H4 (3.0.1-git)';
+    public $version = 'H4 (3.0.2-git)';
 
     /**
      * Global variables defined:
@@ -463,7 +463,7 @@ class Kronolith_Application extends Horde_Registry_Application
                         false,
                         array(
                             'icon' => $alarmImg,
-                            'url' => $event->getViewUrl()
+                            'url' => $event->getViewUrl(array(), false, false)
                         )
                     );
                 }

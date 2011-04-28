@@ -135,6 +135,7 @@ class Horde_Release_Sentinel
         if ($application = $this->applicationFileExists()) {
             $tmp = Horde_Util::getTempFile();
 
+            $oldmode = fileperms($application);
             $oldfp = fopen($application, 'r');
             $newfp = fopen($tmp, 'w');
             while ($line = fgets($oldfp)) {
@@ -147,6 +148,7 @@ class Horde_Release_Sentinel
             }
             fclose($oldfp);
             fclose($newfp);
+            chmod($tmp, $oldmode);
 
             system("mv -f $tmp $application");
         }
@@ -180,5 +182,23 @@ class Horde_Release_Sentinel
             return $application;
         }
         return false;
+    }
+
+    /**
+     * Returns the current version from Application.php.
+     *
+     * @return string Version string.
+     */
+    public function getVersion()
+    {
+        if ($application = $this->applicationFileExists()) {
+            $oldfp = fopen($application, 'r');
+            while ($line = fgets($oldfp)) {
+                if (preg_match('/public \$version = \'([^\']*)\';/', $line, $match)) {
+                    return $match[1];
+                }
+            }
+            fclose($oldfp);
+        }
     }
 }
