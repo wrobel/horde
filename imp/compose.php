@@ -629,10 +629,14 @@ if (!$vars->compose_formToken && ($vars->actionID != 'draft')) {
     $header['bcc'] = Horde_Mime_Address::addrArray2String($identity->getBccAddresses());
 }
 
-foreach (array('to', 'cc', 'bcc', 'subject') as $val) {
+foreach (array('to', 'cc', 'bcc') as $val) {
     if (!isset($header[$val])) {
         $header[$val] = $imp_ui->getAddressList($vars->$val);
     }
+}
+
+if (!isset($header['subject'])) {
+    $header['subject'] = $vars->subject;
 }
 
 /* If PGP encryption is set by default, and we have a recipient list on first
@@ -750,7 +754,7 @@ if ($redirect) {
 
     $t->set('title', htmlspecialchars($title));
     $t->set('send_msg_ak', Horde::getAccessKeyAndTitle(_("_Send Message")));
-    if ($imp_imap->allowFolders() && !$readonly_drafts) {
+    if ($imp_imap->access(IMP_Imap::ACCESS_FOLDERS) && !$readonly_drafts) {
         $t->set('save_draft_ak', Horde::getAccessKeyAndTitle(_("Save _Draft")));
     }
     $t->set('help', Horde_Help::link('imp', 'compose-buttons'));
@@ -872,7 +876,7 @@ if ($redirect) {
     }
     $t->set('compose_options', $compose_options);
 
-    $t->set('ssm', ($imp_imap->allowFolders() && !$prefs->isLocked('save_sent_mail')));
+    $t->set('ssm', ($imp_imap->access(IMP_Imap::ACCESS_FOLDERS) && !$prefs->isLocked('save_sent_mail')));
     if ($t->get('ssm')) {
         if ($readonly_sentmail) {
             $notification->push(sprintf(_("Cannot save sent-mail message to \"%s\" as that mailbox is read-only.", IMP_Mailbox::get($sent_mail_folder)->display), 'horde.warning'));

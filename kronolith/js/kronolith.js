@@ -3970,6 +3970,7 @@ KronolithCore = {
                     this.quickClose();
                     break;
                 case 'kronolithEventForm':
+                    Horde_Calendar.hideCal();
                     this.closeRedBox();
                     this.go(this.lastLocation);
                     break;
@@ -3982,6 +3983,7 @@ KronolithCore = {
 
         switch (kc) {
         case Event.KEY_ESC:
+            Horde_Calendar.hideCal();
             this.closeRedBox();
             break;
         }
@@ -4101,21 +4103,32 @@ KronolithCore = {
                 break;
 
             case 'kronolithEventSave':
-                this.saveEvent();
+                if (!elt.disabled) {
+                    this.saveEvent();
+                }
                 e.stop();
                 break;
 
             case 'kronolithEventSaveAsNew':
-                this.saveEvent(true);
+                if (!elt.disabled) {
+                    this.saveEvent(true);
+                }
                 e.stop();
                 break;
 
             case 'kronolithTaskSave':
-                this.saveTask();
+                if (!elt.disabled) {
+                    this.saveTask();
+                }
                 e.stop();
                 break;
 
             case 'kronolithEventDelete':
+                if (elt.disabled) {
+                    e.stop();
+                    break;
+                }
+
                 elt.disable();
                 var cal = $F('kronolithEventCalendar'),
                     eventid = $F('kronolithEventId');
@@ -4152,6 +4165,11 @@ KronolithCore = {
                 break;
 
             case 'kronolithTaskDelete':
+                if (elt.disabled) {
+                    e.stop();
+                    break;
+                }
+
                 elt.disable();
                 var tasklist = $F('kronolithTaskOldList'),
                     taskid = $F('kronolithTaskId');
@@ -4550,13 +4568,20 @@ KronolithCore = {
                 e.stop();
                 return;
             } else if (elt.hasClassName('kronolithCalendarSave')) {
-                elt.disable();
-                if (!this.saveCalendar(elt.up('form'))) {
-                    elt.enable();
+                if (!elt.disabled) {
+                    elt.disable();
+                    if (!this.saveCalendar(elt.up('form'))) {
+                        elt.enable();
+                    }
                 }
                 e.stop();
                 break;
             } else if (elt.hasClassName('kronolithCalendarContinue')) {
+                if (elt.disabled) {
+                    e.stop();
+                    break;
+                }
+
                 elt.disable();
                 var form = elt.up('form'),
                     type = form.id.replace(/kronolithCalendarForm/, ''),
@@ -4637,16 +4662,18 @@ KronolithCore = {
                     break;
                 }
 
-                elt.disable();
-                this.doAction('deleteCalendar',
-                              { type: type, calendar: calendar },
-                              function(r) {
-                                  if (r.response.deleted) {
-                                      this.deleteCalendar(type, calendar);
-                                  }
-                                  this.closeRedBox();
-                                  this.go(this.lastLocation);
-                              }.bind(this));
+                if (!elt.disabled) {
+                    elt.disable();
+                    this.doAction('deleteCalendar',
+                                  { type: type, calendar: calendar },
+                                  function(r) {
+                                      if (r.response.deleted) {
+                                          this.deleteCalendar(type, calendar);
+                                      }
+                                      this.closeRedBox();
+                                      this.go(this.lastLocation);
+                                  }.bind(this));
+                }
                 e.stop();
                 break;
             } else if (elt.hasClassName('kronolithCalendarSubscribe') ||
@@ -4701,6 +4728,9 @@ KronolithCore = {
         this.updateTimeFields(field.identify());
     },
 
+    /**
+     * Handles moving an event to a different day in month view.
+     */
     onDrop: function(e)
     {
         var drop = e.element(),
@@ -4718,10 +4748,18 @@ KronolithCore = {
             viewDates = this.viewDates(this.date, this.view),
             start = viewDates[0].toString('yyyyMMdd'),
             end = viewDates[1].toString('yyyyMMdd'),
-            sig = start + end + (Math.random() + '').slice(2);
+            sig = start + end + (Math.random() + '').slice(2),
+            events = this.getCacheForDate(lastDate.toString('yyyyMMdd'), cal),
+            attributes = $H({ offDays: diff }),
+            event = events.find(function(e) { return e.key == eventid; });
 
         drop.insert(el);
         this.startLoading(cal, sig);
+        if (event.r) {
+            attributes.set('rday', lastDate);
+            attributes.set('cstart', this.cacheStart);
+            attributes.set('cend', this.cacheEnd);
+        }
         this.doAction('updateEvent',
                       {
                           cal: cal,
@@ -4730,7 +4768,7 @@ KronolithCore = {
                           sig: sig,
                           view_start: start,
                           view_end: end,
-                          att: Object.toJSON($H({ offDays: diff }))
+                          att: Object.toJSON(attributes)
                       },
                       function(r) {
                           // Check if this is the still the result of the most
@@ -4878,6 +4916,12 @@ KronolithCore = {
             attributes = $H({ start: event.value.start,
                               end: event.value.end });
             element = div;
+        }
+        if (event.value.r) {
+            attributes.set('rstart', event.value.s);
+            attributes.set('rend', event.value.e);
+            attributes.set('cstart', this.cacheStart);
+            attributes.set('cend', this.cacheEnd);
         }
 
         element.retrieve('drags').invoke('destroy');

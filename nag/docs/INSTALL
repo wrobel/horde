@@ -34,7 +34,7 @@ To function properly, Nag requires the following:
                   Horde prerequisites. Additionally, many of Nag's optional
                   features are configured via the Horde install.
 
-   .. _`Horde Application Framework`: http://www.horde.org/horde/
+   .. _`Horde Application Framework`: http://www.horde.org/apps/horde
 
 2. SQL support in PHP *or* a configured Kolab Server.
 
@@ -76,43 +76,6 @@ binary PECL packages that need to be compiled, specify both the ``-a`` and the
 ``-B`` flag::
 
    pear install -a -B horde/nag
-
-
-Installing from Release Tarballs
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-.. Important:: As of today, there are no tarballs released for Nag 3
-               yet. Please use the `Installing with PEAR`_ method to install
-               Nag 3.
-
-Nag can be obtained from the Horde website and FTP server, at
-
-   http://www.horde.org/nag/
-
-   ftp://ftp.horde.org/pub/nag/
-
-Or use the mirror closest to you:
-
-   http://www.horde.org/mirrors.php
-
-Nag is written in PHP, and must be installed in a web-accessible directory.
-The precise location of this directory will differ from system to system.
-Conventionally, Nag is installed directly underneath Horde in the webserver's
-document tree.
-
-Since Nag is written in PHP, there is no compilation necessary; simply expand
-the distribution where you want it to reside and rename the root directory of
-the distribution to whatever you wish to appear in the URL.  For example, with
-the Apache webserver's default document root of ``/usr/local/apache/htdocs``,
-you would type::
-
-   cd /usr/local/apache/htdocs/horde
-   tar zxvf /path/to/nag-x.y.z.tar.gz
-   mv nag-x.y.z nag
-
-and would then find Nag at the URL::
-
-   http://your-server/horde/nag/
 
 
 Configuring Nag
@@ -175,13 +138,13 @@ If you encounter problems with Nag, help is available!
 
 The Horde Frequently Asked Questions List (FAQ), available on the Web at
 
-  http://www.horde.org/faq/
+  http://wiki.horde.org/FAQ
 
 The Horde Project runs a number of mailing lists, for individual applications
 and for issues relating to the project as a whole.  Information, archives, and
 subscription information can be found at
 
-  http://www.horde.org/mail/
+  http://www.horde.org/community/mail
 
 Lastly, Horde developers, contributors and users may also be found on IRC,
 on the channel #horde on the Freenode Network (irc.freenode.net).
@@ -189,7 +152,7 @@ on the channel #horde on the Freenode Network (irc.freenode.net).
 Please keep in mind that Nag is free software written by volunteers.  For
 information on reasonable support expectations, please read
 
-  http://www.horde.org/support.php
+  http://www.horde.org/community/support
 
 Thanks for using Nag!
 
@@ -197,7 +160,6 @@ The Horde team
 
 
 .. _README: ?f=README.html
-.. _`docs/HACKING`: ../../horde/docs/?f=HACKING.html
 .. _INSTALL:
 .. _`horde/docs/INSTALL`: ../../horde/docs/?f=INSTALL.html
 .. _`horde/docs/TRANSLATIONS`: ../../horde/docs/?f=TRANSLATIONS.html
