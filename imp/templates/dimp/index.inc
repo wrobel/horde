@@ -287,13 +287,13 @@ function _simpleButton($id, $text, $image, $nodisplay = false)
 </div>
 
 <div class="context" id="ctx_folder_flag" style="display:none">
- <a id="ctx_folder_seen"><span class="iconImg"></span><?php echo _("Read") ?></a>
+ <a id="ctx_folder_seen"><span class="iconImg"></span><?php echo _("Seen") ?></a>
  <a id="ctx_folder_unseen"><span class="iconImg"></span><?php echo _("Unseen") ?></a>
 </div>
 
 <div class="context" id="ctx_folder_export_opts" style="display:none">
  <a id="ctx_folder_export_mbox"><?php echo _("Uncompressed") ?></a>
- <a id="ctx_folder_export_zip"><?php echo _("Compressed [.zip file]") ?></a>
+ <a id="ctx_folder_export_zip"><?php echo _("Compressed (.zip file)") ?></a>
 </div>
 
 <div class="context" id="ctx_container" style="display:none">
@@ -309,12 +309,12 @@ function _simpleButton($id, $text, $image, $nodisplay = false)
  <a id="ctx_container_collapse"><span class="iconImg"></span><?php echo _("Collapse All") ?></a>
 </div>
 
-<?php if ($imp_imap->allowFolders()): ?>
+<?php if ($imp_imap->access(IMP_Imap::ACCESS_FOLDERS)): ?>
 <div class="context" id="ctx_folderopts" style="display:none">
  <a id="ctx_folderopts_new"><span class="iconImg"></span><?php echo _("New Folder") ?></a>
 <?php if ($use_sub): ?>
  <a id="ctx_folderopts_sub" style="display:none"><span class="iconImg"></span><?php echo _("Hide Unsubscribed") ?></a>
- <a id="ctx_folderopts_unsub"><span class="iconImg"></span><?php echo _("Show All") ?></a>
+ <a id="ctx_folderopts_unsub"><span class="iconImg"></span><?php echo _("Show All Folders") ?></a>
 <?php endif; ?>
  <a id="ctx_folderopts_expand"><span class="iconImg"></span><?php echo _("Expand All") ?></a>
  <a id="ctx_folderopts_collapse"><span class="iconImg"></span><?php echo _("Collapse All") ?></a>
