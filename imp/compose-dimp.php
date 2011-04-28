@@ -36,9 +36,6 @@ Horde_Registry::appInit('imp', array(
 
 $vars = Horde_Variables::getDefaultVariables();
 
-/* Determine if compose mode is disabled. */
-$compose_disable = !IMP::canCompose();
-
 /* The headers of the message. */
 $header = array();
 foreach (array('to', 'cc', 'bcc', 'subject') as $v) {
@@ -274,8 +271,12 @@ if (!($prefs->isLocked('default_encrypt')) &&
     $scripts[] = array('redbox.js', 'horde');
 }
 
+Horde::startBuffer();
 IMP::status();
+$status = Horde::endBuffer();
+
 IMP_Dimp::header($title, $scripts);
+echo $status;
 echo $t->fetch(IMP_TEMPLATES . '/dimp/compose/compose-base.html');
 Horde::includeScriptFiles();
 Horde::outputInlineScript();

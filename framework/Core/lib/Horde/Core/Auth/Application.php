@@ -54,7 +54,7 @@ class Horde_Core_Auth_Application extends Horde_Auth_Base
      *
      * @var string
      */
-    protected $_mode;
+    protected $_mode = 'auto';
 
     /**
      * Available capabilities.
@@ -79,7 +79,7 @@ class Horde_Core_Auth_Application extends Horde_Auth_Base
      * <pre>
      * 'app' - (string) The application which is providing authentication.
      * 'base' - (Horde_Auth_Base) The base Horde_Auth driver. Only needed if
-                'app' is 'horde'.
+     *          'app' is 'horde'.
      * </pre>
      *
      * @throws InvalidArgumentException
@@ -610,9 +610,6 @@ class Horde_Core_Auth_Application extends Horde_Auth_Base
                 // THIS IS A HACK. DO PROPER SMARTPHONE DETECTION.
                 if ($browser->isMobile()) {
                     $this->_mode = $browser->getBrowser() == 'webkit' ? 'smartmobile' : 'mobile';
-                } else {
-                    // App prefs will decide
-                    $this->_mode = 'auto';
                 }
             } else {
                 setcookie('default_horde_view', $this->_mode, time() + 30 * 86400, $conf['cookie']['path'], $conf['cookie']['domain']);

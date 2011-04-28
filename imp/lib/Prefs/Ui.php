@@ -37,10 +37,11 @@ class IMP_Prefs_Ui
         $imp_imap = $injector->getInstance('IMP_Factory_Imap')->create();
 
         /* Hide appropriate prefGroups. */
-        if ($imp_imap->pop3) {
+        if (!$imp_imap->access(IMP_Imap::ACCESS_FLAGS)) {
             $ui->suppressGroups[] = 'flags';
+        }
+        if (!$imp_imap->access(IMP_Imap::ACCESS_SEARCH)) {
             $ui->suppressGroups[] = 'searches';
-            $ui->suppressGroups[] = 'server';
         }
 
         try {
@@ -63,7 +64,7 @@ class IMP_Prefs_Ui
             $ui->suppressGroups[] = 'smime';
         }
 
-        if (!$imp_imap->allowFolders()) {
+        if (!$imp_imap->access(IMP_Imap::ACCESS_FOLDERS)) {
             $ui->suppressGroups[] = 'searches';
         }
     }
@@ -78,7 +79,7 @@ class IMP_Prefs_Ui
         global $conf, $injector, $prefs, $registry, $session;
 
         $cprefs = $ui->getChangeablePrefs();
-        $pop3 = $injector->getInstance('IMP_Factory_Imap')->create()->pop3;
+        $imp_imap = $injector->getInstance('IMP_Factory_Imap')->create();
 
         switch ($ui->group) {
         case 'identities':
@@ -153,14 +154,13 @@ class IMP_Prefs_Ui
             case 'purge_spam_keep':
             case 'rename_sentmail_monthly':
             case 'tree_view':
-            case 'use_trash':
-                if ($pop3) {
+                if (!$imp_imap->access(IMP_Imap::ACCESS_FOLDERS)) {
                     $ui->suppress[] = $val;
                 }
                 break;
 
             case 'delete_spam_after_report':
-                if ($pop3) {
+                if (!$imp_imap->access(IMP_Imap::ACCESS_FOLDERS)) {
                     $tmp = $ui->prefs['delete_spam_after_report']['enum'];
                     unset($tmp[2]);
                     $ui->override['delete_spam_after_report'] = $tmp;
@@ -183,7 +183,7 @@ class IMP_Prefs_Ui
             case 'purge_trash_interval':
             case 'purge_trash_keep':
             case 'trashselect':
-                if ($pop3 ||
+                if (!$imp_imap->access(IMP_Imap::ACCESS_TRASH) ||
                     $prefs->isLocked('use_trash') ||
                     !$prefs->getValue('use_trash')) {
                     $ui->suppress[] = $val;
@@ -306,6 +306,12 @@ class IMP_Prefs_Ui
 
             case 'trashselect':
                 if ($prefs->isLocked('trash_folder')) {
+                    $ui->suppress[] = $val;
+                }
+                break;
+
+            case 'use_trash':
+                if (!$imp_imap->access(IMP_Imap::ACCESS_TRASH)) {
                     $ui->suppress[] = $val;
                 }
                 break;
@@ -507,40 +513,26 @@ class IMP_Prefs_Ui
             $notification->push(_("You have activated move to Trash but no Trash folder is defined. You will be unable to delete messages until you set a Trash folder in the preferences."), 'horde.warning');
         }
 
-        switch ($ui->group) {
-        case 'compose':
-            if ($prefs->isDirty('mail_domain')) {
-                $maildomain = preg_replace('/[^-\.a-z0-9]/i', '', $prefs->getValue('mail_domain'));
-                $prefs->setValue('maildomain', $maildomain);
-                if (!empty($maildomain)) {
-                    $session->set('imp', 'maildomain', $maildomain);
-                }
+        if ($prefs->isDirty('mail_domain')) {
+            $maildomain = preg_replace('/[^-\.a-z0-9]/i', '', $prefs->getValue('mail_domain'));
+            $prefs->setValue('maildomain', $maildomain);
+            if (!empty($maildomain)) {
+                $session->set('imp', 'maildomain', $maildomain);
             }
-            break;
+        }
 
-        case 'dimp':
-            if ($prefs->isDirty('dynamic_view')) {
-                $session->set(
-                    'imp',
-                    'view',
-                    ($prefs->getValue('dynamic_view') && $session->get('horde', 'mode') != 'traditional')
-                        ? 'dimp'
-                        : ($browser->isMobile() ? 'mimp' : 'imp')
-                );
-            }
-            break;
+        if ($prefs->isDirty('dynamic_view')) {
+            $session->set(
+                'imp',
+                'view',
+                ($prefs->getValue('dynamic_view') && $session->get('horde', 'mode') != 'traditional')
+                    ? 'dimp'
+                    : ($browser->isMobile() ? 'mimp' : 'imp')
+            );
+        }
 
-        case 'display':
-            if ($prefs->isDirty('tree_view')) {
-                $registry->getApiInstance('imp', 'application')->mailboxesChanged();
-            }
-            break;
-
-        case 'server':
-            if ($prefs->isDirty('subscribe')) {
-                $registry->getApiInstance('imp', 'application')->mailboxesChanged();
-            }
-            break;
+        if ($prefs->isDirty('subscribe') || $prefs->isDirty('tree_view')) {
+            $registry->getApiInstance('imp', 'application')->mailboxesChanged();
         }
     }
 
@@ -978,7 +970,7 @@ class IMP_Prefs_Ui
         $t = $injector->createInstance('Horde_Template');
         $t->setOption('gettext', true);
 
-        if (!$injector->getInstance('IMP_Factory_Imap')->create()->allowFolders()) {
+        if (!$injector->getInstance('IMP_Factory_Imap')->create()->access(IMP_Imap::ACCESS_FOLDERS)) {
             $t->set('nofolder', true);
         } else {
             if (!($initial_page = $prefs->getValue('initial_page'))) {
@@ -1436,7 +1428,7 @@ class IMP_Prefs_Ui
 
         $imp_imap = $injector->getInstance('IMP_Factory_Imap')->create();
 
-        if (!$imp_imap->allowFolders() ||
+        if (!$imp_imap->access(IMP_Imap::ACCESS_FOLDERS) ||
             $prefs->isLocked('sent_mail_folder')) {
             return false;
         }
@@ -1900,7 +1892,8 @@ class IMP_Prefs_Ui
 
         $imp_imap = $injector->getInstance('IMP_Factory_Imap')->create();
 
-        if (!$imp_imap->allowFolders() || $prefs->isLocked($pref)) {
+        if (!$imp_imap->access(IMP_Imap::ACCESS_FOLDERS) ||
+            $prefs->isLocked($pref)) {
             return false;
         }
 

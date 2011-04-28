@@ -28,7 +28,7 @@ class IMP_Imap_Tree implements ArrayAccess, Countable, Iterator, Serializable
     const ELT_NAMESPACE = 2;
     const ELT_IS_OPEN = 4;
     const ELT_IS_SUBSCRIBED = 8;
-    const ELT_NOSHOW = 16;
+    // Unused constant: 16
     const ELT_IS_POLLED = 32;
     const ELT_NEED_SORT = 64;
     const ELT_VFOLDER = 128;
@@ -169,7 +169,7 @@ class IMP_Imap_Tree implements ArrayAccess, Countable, Iterator, Serializable
 
         $imp_imap = $injector->getInstance('IMP_Factory_Imap')->create();
 
-        $unsubmode = ($imp_imap->pop3 ||
+        $unsubmode = (!$imp_imap->access(IMP_Imap::ACCESS_FOLDERS) ||
                       !$prefs->getValue('subscribe') ||
                       $session->get('imp', 'showunsub'));
 
@@ -186,7 +186,7 @@ class IMP_Imap_Tree implements ArrayAccess, Countable, Iterator, Serializable
             $ns = $imp_imap->getNamespaceList();
             $ptr = reset($ns);
             $this->_delimiter = $ptr['delimiter'];
-            if ($imp_imap->allowFolders()) {
+            if ($imp_imap->access(IMP_Imap::ACCESS_FOLDERS)) {
                 $this->_namespaces = $ns;
             }
         }
@@ -200,29 +200,32 @@ class IMP_Imap_Tree implements ArrayAccess, Countable, Iterator, Serializable
 
         /* Add INBOX and exit if folders aren't allowed or if we are using
          * POP3. */
-        if (!$imp_imap->allowFolders()) {
+        if (!$imp_imap->access(IMP_Imap::ACCESS_FOLDERS)) {
             $this->_insertElt($this->_makeElt('INBOX', self::ELT_IS_SUBSCRIBED));
             return;
         }
 
         /* Add namespace elements. */
-        foreach ($this->_namespaces as $key => $val) {
-            if (($val['type'] != Horde_Imap_Client::NS_PERSONAL) &&
-                $prefs->getValue('tree_view')) {
-                $elt = $this->_makeElt(
-                    ($val['type'] == Horde_Imap_Client::NS_OTHER) ? self::OTHER_KEY : self::SHARED_KEY,
-                    self::ELT_NOSELECT | self::ELT_NAMESPACE | self::ELT_NONIMAP | self::ELT_NOSHOW
-                );
+        if ($prefs->getValue('tree_view')) {
+            foreach ($this->_namespaces as $val) {
+                $type = null;
 
-                foreach ($this->_namespaces as $val2) {
-                    if (($val2['type'] == $val['type']) &&
-                        ($val2['name'] != $val['name'])) {
-                        $elt['a'] &= ~self::ELT_NOSHOW;
-                        break;
-                    }
+                switch ($val['type']) {
+                case Horde_Imap_Client::NS_OTHER:
+                    $type = self::OTHER_KEY;
+                    break;
+
+                case Horde_Imap_Client::NS_SHARED:
+                    $type = self::SHARED_KEY;
+                    break;
                 }
 
-                $this->_insertElt($elt);
+                if (!is_null($type) && !isset($this->_tree[$type])) {
+                    $this->_insertElt($this->_makeElt(
+                        $type,
+                        self::ELT_NOSELECT | self::ELT_NAMESPACE | self::ELT_NONIMAP
+                    ));
+                }
             }
         }
 
@@ -263,7 +266,7 @@ class IMP_Imap_Tree implements ArrayAccess, Countable, Iterator, Serializable
             if (empty($result['INBOX'])) {
                 $result = $imp_imap->listMailboxes('INBOX', Horde_Imap_Client::MBOX_ALL, array('attributes' => true, 'delimiter' => true)) + $result;
             }
-        } catch (Horde_Imap_Client_Exception $e) {
+        } catch (IMP_Imap_Exception $e) {
             $result = array();
         }
 
@@ -361,18 +364,15 @@ class IMP_Imap_Tree implements ArrayAccess, Countable, Iterator, Serializable
             }
 
             if ($GLOBALS['prefs']->getValue('tree_view')) {
-                $name = ($ns_info['type'] == Horde_Imap_Client::NS_OTHER)
-                    ? self::OTHER_KEY
-                    : self::SHARED_KEY;
-                if ($elt['c'] == 0) {
-                    $elt['p'] = $name;
-                    ++$elt['c'];
-                } elseif ($this->_tree[$name] && self::ELT_NOSHOW) {
-                    if ($elt['c'] == 1) {
-                        $elt['p'] = $name;
-                    }
-                } else {
-                    ++$elt['c'];
+                /* Don't add namespace element to tree. */
+                if ($this->isNamespace($elt)) {
+                    return false;
+                }
+
+                if ($elt['c'] == 1) {
+                    $elt['p'] = ($ns_info['type'] == Horde_Imap_Client::NS_OTHER)
+                        ? self::OTHER_KEY
+                        : self::SHARED_KEY;
                 }
             }
             break;
@@ -464,7 +464,7 @@ class IMP_Imap_Tree implements ArrayAccess, Countable, Iterator, Serializable
         if (!empty($id)) {
             try {
                 $this->_insert($GLOBALS['injector']->getInstance('IMP_Factory_Imap')->create()->listMailboxes($id, Horde_Imap_Client::MBOX_ALL, array('attributes' => true, 'delimiter' => true, 'sort' => true)));
-            } catch (Horde_Imap_Client_Exception $e) {}
+            } catch (IMP_Imap_Exception $e) {}
         }
     }
 
@@ -536,7 +536,7 @@ class IMP_Imap_Tree implements ArrayAccess, Countable, Iterator, Serializable
      */
     protected function _insertElt($elt)
     {
-        if (isset($this->_tree[$elt['v']])) {
+        if (!$elt || isset($this->_tree[$elt['v']])) {
             return;
         }
 
@@ -796,8 +796,12 @@ class IMP_Imap_Tree implements ArrayAccess, Countable, Iterator, Serializable
 
         if ($elt && isset($this->_parent[$elt['v']])) {
             foreach ($this->_parent[$elt['v']] as $val) {
-                if ($this->isSubscribed($this->_tree[$val]) ||
-                    $this->hasChildren($this->_tree[$val])) {
+                if ($this->_showunsub &&
+                    !$this->isContainer($this->_tree[$val]) &&
+                    !$this->isNamespace($this->_tree[$val])) {
+                    return true;
+                } elseif ($this->isSubscribed($this->_tree[$val]) ||
+                          $this->hasChildren($this->_tree[$val])) {
                     return true;
                 }
             }
@@ -1371,7 +1375,7 @@ class IMP_Imap_Tree implements ArrayAccess, Countable, Iterator, Serializable
             $this->changed = true;
         }
 
-        if (!$GLOBALS['injector']->getInstance('IMP_Factory_Imap')->create()->allowFolders()) {
+        if (!$GLOBALS['injector']->getInstance('IMP_Factory_Imap')->create()->access(IMP_Imap::ACCESS_FOLDERS)) {
             return;
         }
 
@@ -1710,13 +1714,6 @@ class IMP_Imap_Tree implements ArrayAccess, Countable, Iterator, Serializable
             $this->_sortLevel($curr->value);
 
             $curr = $this->current();
-            if ($GLOBALS['prefs']->getValue('tree_view') &&
-                $curr->namespace &&
-                !$curr->nonimap &&
-                ($this->_tree[$curr->parent] && self::ELT_NOSHOW)) {
-                $this->next();
-                return;
-            }
         } else {
             /* Else, increment within the current subfolder. */
             ++$this->_currkey;
