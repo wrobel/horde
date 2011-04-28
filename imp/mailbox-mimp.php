@@ -110,7 +110,7 @@ case 's':
 
 // 'rs' = run search
 case 'rs':
-    if (!empty($vars->search) && $imp_imap->imap) {
+    if (!empty($vars->search) && $imp_imap->access(IMP_Imap::ACCESS_SEARCH)) {
         /* Create the search query and reset the global mailbox variable. */
         $q_ob = $imp_search->createQuery(array(new IMP_Search_Element_Text($vars->search, false)), array(
             'mboxes' => array(IMP::$mailbox)
@@ -134,14 +134,14 @@ $title = IMP::$mailbox->label;
 /* Modify title for display on page. */
 if ($pageOb['msgcount']) {
     $title .= ' (';
-    if ($imp_imap->imap) {
+    if ($imp_imap->access(IMP_Imap::ACCESS_UNSEEN)) {
         $unseen = $imp_mailbox->unseenMessages(Horde_Imap_Client::SORT_RESULTS_COUNT);
-        $title .= $unseen . ' ' . _("unseen") . '/';
+        $title .= sprintf(_("%d unseen"), $unseen) . '/';
     }
-    $title .= $pageOb['msgcount'] . ' ' . _("total") . ')';
+    $title .= sprintf(_("%d total"), $pageOb['msgcount']) . ')';
 }
 if ($pageOb['pagecount'] > 1) {
-    $title .= ' - ' . $pageOb['page'] . ' ' . _("of") . ' ' . $pageOb['pagecount'];
+    $title .= ' - ' . sprintf(_("%d of %d"), $pageOb['page'], $pageOb['pagecount']);
 }
 if ($readonly) {
     $title .= ' [' . _("Read-Only") . ']';
@@ -247,7 +247,7 @@ if (!$search_mbox && IMP::$mailbox->threadsort) {
 }
 
 /* Add search link. */
-if ($imp_imap->imap) {
+if ($imp_imap->access(IMP_Imap::ACCESS_SEARCH)) {
     if ($search_mbox) {
         $mboxes = $imp_search[IMP::$mailbox]->mboxes;
         $orig_mbox = IMP_Mailbox::get(reset($mboxes));
