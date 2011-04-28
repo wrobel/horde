@@ -113,18 +113,23 @@ class Horde
         } catch (Exception $e) {
             return;
         }
+
         $html_ini = ini_set('html_errors', 'Off');
         self::startBuffer();
-        echo "Variable information:\n";
-        var_dump($event);
-
-        if (is_resource($event)) {
-            echo "\nStream contents:\n";
-            rewind($event);
-            fpassthru($event);
+        if (!is_null($event)) {
+            echo "Variable information:\n";
+            var_dump($event);
+            echo "\n";
         }
 
-        echo "\nBacktrace:\n";
+        if (is_resource($event)) {
+            echo "Stream contents:\n";
+            rewind($event);
+            fpassthru($event);
+            echo "\n";
+        }
+
+        echo "Backtrace:\n";
         echo strval(new Horde_Support_Backtrace());
 
         $logger->log(self::endBuffer(), Horde_Log::DEBUG);
@@ -1478,7 +1483,7 @@ HTML;
          * base64 encoded size. */
         return (($dataurl === true) ||
                 (filesize($in->fs) <= (($dataurl * 0.75) - 50)))
-            ? 'data:image/' . substr($in->uri, strrpos($in->uri, '.') + 1) . ';base64,' . base64_encode(file_get_contents($in->fs))
+            ? 'data:' . Horde_Mime_Magic::extToMime(substr($in->uri, strrpos($in->uri, '.') + 1)) . ';base64,' . base64_encode(file_get_contents($in->fs))
             : $in->uri;
     }
 
@@ -2079,7 +2084,8 @@ HTML;
             $params->onload = $options['onload'];
         }
         if (!empty($options['params'])) {
-            $params->params = http_build_query(array_map('rawurlencode', $options['params']));
+            // Bug #9903: 3rd parameter must explicitly be '&'
+            $params->params = http_build_query(array_map('rawurlencode', $options['params']), '', '&');
         }
         if (!empty($options['width'])) {
             $params->width = $options['width'];

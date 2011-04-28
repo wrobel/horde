@@ -34,7 +34,7 @@ To function properly, Ingo **requires** the following:
                   prerequisites. Additionally, many of Ingo's optional features
                   are configured via the Horde install.
 
-   .. _`Horde Application Framework`: http://www.horde.org/horde/
+   .. _`Horde Application Framework`: http://www.horde.org/apps/horde
 
 2. The following PEAR modules:
    (See `horde/docs/INSTALL`_ for instructions on installing PEAR modules)
@@ -86,43 +86,6 @@ binary PECL packages that need to be compiled, specify both the ``-a`` and the
    pear install -a -B horde/ingo
 
 
-Installing from Release Tarballs
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-.. Important:: As of today, there are no tarballs released for Ingo 2
-               yet. Please use the `Installing with PEAR`_ method to install
-               Ingo 2.
-
-Ingo can be obtained from the Horde website and FTP server, at
-
-   http://www.horde.org/ingo/
-
-   ftp://ftp.horde.org/pub/ingo/
-
-Or use the mirror closest to you:
-
-   http://www.horde.org/mirrors.php
-
-Ingo is written in PHP, and must be installed in a web-accessible directory.
-The precise location of this directory will differ from system to system.
-Conventionally, Ingo is installed directly underneath Horde in the webserver's
-document tree.
-
-Since Ingo is written in PHP, there is no compilation necessary; simply expand
-the distribution where you want it to reside and rename the root directory of
-the distribution to whatever you wish to appear in the URL.  For example, with
-the Apache webserver's default document root of ``/usr/local/apache/htdocs``,
-you would type::
-
-   cd /usr/local/apache/htdocs/horde
-   tar zxvf /path/to/ingo-x.y.z.tar.gz
-   mv ingo-x.y.z ingo
-
-and would then find Ingo at the URL::
-
-   http://your-server/horde/ingo/
-
-
 Configuring Ingo
 ================
 
@@ -156,8 +119,8 @@ Configuring Ingo
    Ingo row of the configuration screen.
 
    Alternatively you creating the Ingo database tables can be accomplished with
-   horde's ``horde-db-migrate`` utility.  If your database is properly setup in the
-   Horde configuration, just run the following::
+   horde's ``horde-db-migrate`` utility.  If your database is properly setup in
+   the Horde configuration, just run the following::
 
       horde/bin/horde-db-migrate ingo
 
@@ -178,13 +141,13 @@ If you encounter problems with Ingo, help is available!
 
 The Horde Frequently Asked Questions List (FAQ), available on the Web at
 
-  http://www.horde.org/faq/
+  http://wiki.horde.org/FAQ
 
 The Horde Project runs a number of mailing lists, for individual applications
 and for issues relating to the project as a whole.  Information, archives, and
 subscription information can be found at
 
-  http://www.horde.org/mail/
+  http://www.horde.org/community/mail
 
 Lastly, Horde developers, contributors and users may also be found on IRC,
 on the channel #horde on the Freenode Network (irc.freenode.net).
@@ -192,7 +155,7 @@ on the channel #horde on the Freenode Network (irc.freenode.net).
 Please keep in mind that Ingo is free software written by volunteers.
 For information on reasonable support expectations, please read
 
-  http://www.horde.org/support.php
+  http://www.horde.org/community/support
 
 Thanks for using Ingo!
 
@@ -200,6 +163,5 @@ The Ingo team
 
 
 .. _README: ?f=README.html
-.. _`horde/docs/HACKING`: ../../horde/docs/?f=HACKING.html
 .. _`horde/docs/INSTALL`: ../../horde/docs/?f=INSTALL.html
 .. _`horde/docs/TRANSLATIONS`: ../../horde/docs/?f=TRANSLATIONS.html
