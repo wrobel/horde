@@ -1,7 +1,21 @@
 ----------
-v4.0.1-git
+v4.0.2-git
 ----------
 
+[jan] Fix adding categories.
+[jan] Fix calculation of last password change in LDAP account portal block (Bug
+      #9770).
+[jan] Don't check for outdated DB schemas if database support is disabled (Bug
+      #9986).
+[mjr] Fix editing settings of fixed portal blocks (Bug #9910).
+
+
+------
+v4.0.1
+------
+
+[mjr] Fix the blockTitle and blockContent API methods.
+[jan] Fix creating folders with SQL VFS driver (Bug #9894).
 [jan] Fix LDAP parameters of account portal block (Klaus Steinberger, Bug
       #9770).
 [jan] Fix migration detection on Windows.

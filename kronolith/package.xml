@@ -22,10 +22,10 @@
   <email>mrubinsk@horde.org</email>
   <active>yes</active>
  </lead>
- <date>2011-04-06</date>
- <time>01:53:44</time>
+ <date>2011-04-20</date>
+ <time>22:33:04</time>
  <version>
-  <release>3.0.1</release>
+  <release>3.0.2</release>
   <api>3.0.0</api>
  </version>
  <stability>
@@ -34,9 +34,7 @@
  </stability>
  <license uri="http://www.gnu.org/licenses/gpl.html">GPL</license>
  <notes>
-* [jan] Fix undefined function on Windows (Bug #9916).
-* [jan] Support adding and editing of CalDAV events in dynamic view (Bug #9865).
-* [jan] Remove debug code in Ajax library (Bug #9818).
+* [jan] Fix dragging tasks in the dynamic view.
  </notes>
  <contents>
   <dir baseinstalldir="/" name="/">
@@ -1693,12 +1691,30 @@
    <stability>
     <release>stable</release>
     <api>stable</api></stability>
-   <date>2011-04-06</date>
+   <date>2011-04-20</date>
    <license uri="http://www.gnu.org/licenses/gpl.html">GPL</license>
    <notes>
+* [jan] Don&apos;t store all task lists in the session.
+* [jan] Fix new task lists not showing up until next login (Bug #9814).
+* [mjr] Fix broken event alarm links in sidebar (Bug #9897).
+* [mjr] Fix drag/drop editing of recurring events (Bug #9880).
 * [jan] Fix undefined function on Windows (Bug #9916).
 * [jan] Support adding and editing of CalDAV events in dynamic view (Bug #9865).
+* [mjr] Allow migrations to complete despite of missing shares.
 * [jan] Remove debug code in Ajax library (Bug #9818).
+   </notes>
+  </release>
+  <release>
+   <version>
+    <release>3.0.2</release>
+    <api>3.0.0</api></version>
+   <stability>
+    <release>stable</release>
+    <api>stable</api></stability>
+   <date>2011-04-20</date>
+   <license uri="http://www.gnu.org/licenses/gpl.html">GPL</license>
+   <notes>
+* [jan] Fix dragging tasks in the dynamic view.
    </notes>
   </release>
  </changelog>

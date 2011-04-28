@@ -17,8 +17,13 @@ class IMP_Views_ListMessages
     /**
      * Returns a list of messages for use with ViewPort.
      *
-     * @var array $args  TODO (applyfilter, initial, mbox, qsearchmbox,
-     *                   qsearchfilter)
+     * @var array $args  TODO
+     *   - applyfilter
+     *   - change: (boolean)
+     *   - initial: (boolean)
+     *   - mbox: (string) The mailbox of the view.
+     *   - qsearchmbox: (string) The mailbox to do the quicksearch in.
+     *   - qsearchfilter
      *
      * @return array  TODO
      */
@@ -242,11 +247,11 @@ class IMP_Views_ListMessages
                         $query->uid();
 
                         try {
-                            $res = $imp_imap->fetch($mbox, $query, array('changedsince' => $parsed['highestmodseq']));
-                            if (!empty($res)) {
-                                $changed = array_flip(array_keys($res));
-                            }
-                        } catch (Horde_Imap_Client_Exception $e) {}
+                            $changed = $imp_imap->fetch($mbox, $query, array(
+                                'changedsince' => $parsed['highestmodseq'],
+                                'ids' => new Horde_Imap_Client_Ids(array_keys($cached))
+                            ));
+                        } catch (IMP_Imap_Exception $e) {}
                     }
                 }
             }
@@ -342,7 +347,7 @@ class IMP_Views_ListMessages
         }
 
         /* Build the overview list. */
-        $result->data = $this->_getOverviewData($mbox, array_keys($data), $is_search);
+        $result->data = $this->_getOverviewData($mbox, array_keys($data));
 
         /* Get unseen/thread information. */
         if (!$is_search) {
@@ -350,7 +355,7 @@ class IMP_Views_ListMessages
                 if ($info = $imp_imap->status($mbox, Horde_Imap_Client::STATUS_UNSEEN)) {
                     $md->unseen = intval($info['unseen']);
                 }
-            } catch (Horde_Imap_Client_Exception $e) {}
+            } catch (IMP_Imap_Exception $e) {}
 
             if ($sortpref['by'] == Horde_Imap_Client::SORT_THREAD) {
                 $imp_thread = new IMP_Imap_Thread($mailbox_list->getThreadOb());
@@ -395,12 +400,11 @@ class IMP_Views_ListMessages
      * @param IMP_Mailbox $mbox  The current mailbox.
      * @param array $msglist     The list of message sequence numbers to
      *                           process.
-     * @param boolean $search    Is this a search mbox?
      *
      * @return array  TODO
      * @throws Horde_Exception
      */
-    private function _getOverviewData($mbox, $msglist, $search)
+    private function _getOverviewData($mbox, $msglist)
     {
         $msgs = array();
 
@@ -414,9 +418,13 @@ class IMP_Views_ListMessages
             'type' => $GLOBALS['prefs']->getValue('atc_flag')
         ));
         $charset = 'UTF-8';
+        $imp_imap = $GLOBALS['injector']->getInstance('IMP_Factory_Imap')->create();
         $imp_ui = new IMP_Ui_Mailbox($mbox);
+
+        $flags = $imp_imap->access(IMP_Imap::ACCESS_FLAGS);
         $no_flags_hook = false;
-        $pop3 = $GLOBALS['injector']->getInstance('IMP_Factory_Imap')->create()->pop3;
+        $pop3 = $imp_imap->pop3;
+        $search = $mbox->search;
 
         /* Display message information. */
         reset($overview['overview']);
@@ -428,7 +436,7 @@ class IMP_Views_ListMessages
             );
 
             /* Get all the flag information. */
-            if (!$pop3) {
+            if ($flags) {
                 if (!$no_flags_hook) {
                     try {
                         $ob['flags'] = array_merge($ob['flags'], Horde::callHook('msglist_flags', array($ob, 'dimp'), 'imp'));

@@ -261,6 +261,8 @@ class IMP_Compose implements ArrayAccess, Countable, Iterator
                     break;
                 }
             } catch (Horde_Exception $e) {}
+        } else {
+            $draft_headers->addHeader('X-IMP-Draft', 'Yes');
         }
 
         return $base->toString(array(
@@ -310,7 +312,7 @@ class IMP_Compose implements ArrayAccess, Countable, Iterator
             $this->_metadata['draft_uid'] = new IMP_Indices($drafts_mbox, $ids);
             $this->changed = 'changed';
             return sprintf(_("The draft has been saved to the \"%s\" folder."), $drafts_mbox->display);
-        } catch (Horde_Imap_Client_Exception $e) {
+        } catch (IMP_Imap_Exception $e) {
             return _("The draft was not successfully saved.");
         }
     }
@@ -345,14 +347,15 @@ class IMP_Compose implements ArrayAccess, Countable, Iterator
         $imp_draft = false;
         $reply_type = null;
 
-        if ($val = $headers->getValue('x-imp-draft-reply')) {
+        if ($draft_url = $headers->getValue('x-imp-draft-reply')) {
             if (!($reply_type = $headers->getValue('x-imp-draft-reply-type'))) {
                 $reply_type = self::REPLY;
             }
-            $imp_draft = true;
-        } elseif ($val = $headers->getValue('x-imp-draft-forward')) {
-            $reply_type = self::FORWARD;
-            $imp_draft = true;
+            $imp_draft = self::REPLY;
+        } elseif ($draft_url = $headers->getValue('x-imp-draft-forward')) {
+            $imp_draft = $reply_type = self::FORWARD;
+        } elseif ($headers->getValue('x-imp-draft')) {
+            $imp_draft = self::COMPOSE;
         }
 
         if (IMP::getViewMode() == 'mimp') {
@@ -441,9 +444,9 @@ class IMP_Compose implements ArrayAccess, Countable, Iterator
             }
         }
 
-        if ($val) {
+        if ($draft_url) {
             $imp_imap = $injector->getInstance('IMP_Factory_Imap')->create();
-            $imap_url = $imp_imap->getUtils()->parseUrl(rtrim(ltrim($val, '<'), '>'));
+            $imap_url = $imp_imap->getUtils()->parseUrl(rtrim(ltrim($draft_url, '<'), '>'));
             $protocol = $imp_imap->pop3 ? 'pop' : 'imap';
 
             try {
@@ -452,7 +455,7 @@ class IMP_Compose implements ArrayAccess, Countable, Iterator
                     // Ignore hostspec and port, since these can change
                     // even though the server is the same. UIDVALIDITY should
                     // catch any true server/backend changes.
-                    ($imp_imap->checkUidvalidity($imap_url['mailbox']) == $imap_url['uidvalidity']) &&
+                    ($imp_imap->checkUidvalidity(IMP_Mailbox::get($imap_url['mailbox'])) == $imap_url['uidvalidity']) &&
                     $injector->getInstance('IMP_Factory_Contents')->create(new IMP_Indices($imap_url['mailbox'], $imap_url['uid']))) {
                     $this->_metadata['mailbox'] = IMP_Mailbox::get($imap_url['mailbox']);
                     $this->_metadata['uid'] = $imap_url['uid'];
@@ -627,15 +630,17 @@ class IMP_Compose implements ArrayAccess, Countable, Iterator
 
             try {
                 $this->sendMessage($val['to'], $headers, $val['msg']);
+
+                /* Store history information. */
+                $sentmail->log($senttype, $headers->getValue('message-id'), $val['recipients'], true);
             } catch (IMP_Compose_Exception $e) {
                 /* Unsuccessful send. */
-                Horde::logMessage($e, 'ERR');
-                $sentmail->log($senttype, $headers->getValue('message-id'), $val['recipients'], false);
+                if ($e->log()) {
+                    $sentmail->log($senttype, $headers->getValue('message-id'), $val['recipients'], false);
+                }
                 throw new IMP_Compose_Exception(sprintf(_("There was an error sending your message: %s"), $e->getMessage()));
             }
 
-            /* Store history information. */
-            $sentmail->log($senttype, $headers->getValue('message-id'), $val['recipients'], true);
         }
 
         $sent_saved = true;
@@ -720,8 +725,8 @@ class IMP_Compose implements ArrayAccess, Countable, Iterator
 
             try {
                 $injector->getInstance('IMP_Factory_Imap')->create()->append($sent_folder, array(array('data' => $fcc, 'flags' => $flags)));
-            } catch (Horde_Imap_Client_Exception $e) {
-                $notification->push(sprintf(_("Message sent successfully, but not saved to %s"), $sent_folder->display));
+            } catch (IMP_Imap_Exception $e) {
+                $notification->push(sprintf(_("Message sent successfully, but not saved to %s."), $sent_folder->display));
                 $sent_saved = false;
             }
         }
@@ -2442,7 +2447,11 @@ class IMP_Compose implements ArrayAccess, Countable, Iterator
         }
 
         foreach ($this as $att) {
-            $trailer .= "\n" . $baseurl->copy()->add(array('u' => $auth, 't' => $ts, 'f' => $att['part']->getName()));
+            $trailer .= "\n" . $baseurl->copy()->add(array(
+                'f' => $att['part']->getName(),
+                't' => $ts,
+                'u' => $auth
+            ));
 
             try {
                 if ($att['filetype'] == 'vfs') {
@@ -2488,7 +2497,8 @@ class IMP_Compose implements ArrayAccess, Countable, Iterator
      * @param array $options          Additional options:
      * <pre>
      * html - (boolean) Return text/html part, if available.
-     * imp_msg - (boolean) If true, the message data was created by IMP.
+     * imp_msg - (integer) If non-empty, the message data was created by IMP.
+     *           Either self::COMPOSE, self::FORWARD, or self::REPLY.
      * replylimit - (boolean) Enforce length limits?
      * toflowed - (boolean) Do flowed conversion?
      * </pre>
@@ -2502,21 +2512,36 @@ class IMP_Compose implements ArrayAccess, Countable, Iterator
      * 'text' - (string) The body text.
      * </pre>
      */
-    protected function _getMessageText($contents, $options = array())
+    protected function _getMessageText($contents, array $options = array())
     {
         $body_id = null;
         $mode = 'text';
+        $options = array_merge(array(
+            'imp_msg' => self::COMPOSE
+        ), $options);
 
         if (!empty($options['html']) &&
             $GLOBALS['session']->get('imp', 'rteavail')) {
             $body_id = $contents->findBody('html');
-            if (!is_null($body_id) &&
-                (empty($options['imp_msg']) ||
-                 (strval($body_id) == '1') ||
-                 Horde_Mime::isChild('1', $body_id))) {
-                $mode = 'html';
-            } else {
-                $body_id = null;
+            if (!is_null($body_id)) {
+                switch ($options['imp_msg']) {
+                case self::REPLY:
+                    $check_id = '2';
+                    break;
+
+                case self::COMPOSE:
+                case self::FORWARD:
+                default:
+                    $check_id = '1';
+                    break;
+                }
+
+                if ((strval($body_id) == $check_id) ||
+                    Horde_Mime::isChild($check_id, $body_id)) {
+                    $mode = 'html';
+                } else {
+                    $body_id = null;
+                }
             }
         }
 

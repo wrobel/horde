@@ -22,10 +22,10 @@
   <email>chuck@horde.org</email>
   <active>yes</active>
  </lead>
- <date>2011-04-13</date>
- <time>10:27:55</time>
+ <date>2011-04-22</date>
+ <time>11:49:49</time>
  <version>
-  <release>5.0.1</release>
+  <release>5.0.2</release>
   <api>5.0.0</api>
  </version>
  <stability>
@@ -34,27 +34,10 @@
  </stability>
  <license uri="http://www.gnu.org/licenses/gpl.html">GPL</license>
  <notes>
-* [mms] Don't attempt to poll non-IMAP mailboxes (Bug #9896).
-* [mms] Fix deleting attachments from compose message in dynamic view (Bug #9899).
-* [mms] Newmail portal block can now be configured to auto-update.
-* [mms] Fix deleteMessages and flagMessages API calls (Bug #9888).
-* [mms] More intelligent polling in dynamic view (Request #9808).
-* [mms] Fix spurious viewport loading in rare situations (Bug #9768).
-* [mms] Show human readable message in multipart/report parts in the richest
-        format possible (Bug #9873).
-* [mms] Fix unneeded body part downloads in alternative parts (Bug #9862).
-* [mms] Fix importing PGP private keys.
-* [mms] More intelligent part naming if name is not specified in the message (Request #9853).
-* [jan] Avoid double escaping of folder names in sent-mail drop down list.
-* [jan] Fix translation of special folders on certain IMAP servers.
-* [jan] Fix display of status icons in traditional view (Bug #9844).
-* [mms] Fix displaying all message parts in standard view (Bug #9827).
-* [mms] Allow .eml files to be imported into a mailbox (Request #9827).
-* [mms] Fix vertical layout resize in dynamic view (Bug #9834).
-* [mms] Fix link for filters menu item (Bug #9831).
-* [mms] Fix composing messages in mobile view.
-* [mms] IMP will refuse to work with POP3 servers that don&apos;t support UIDL.
-* [mms] Many POP3 fixes.
+* [mms] Fix viewing linked attachments (Bug #9972).
+* [mms] Add support for the content-id access type of message/external-body.
+* [mms] Consolidate IMAP error handling code in IMP_Imap_Exception.
+* [mms] Use translated namespace name if available.
  </notes>
  <contents>
   <dir baseinstalldir="/" name="/">
@@ -167,6 +150,7 @@
     </dir> <!-- /lib/Flag -->
     <dir name="Imap">
      <file name="Acl.php" role="horde" />
+     <file name="Exception.php" role="horde" />
      <file name="Thread.php" role="horde" />
      <file name="Tree.php" role="horde" />
     </dir> <!-- /lib/Imap -->
@@ -1346,6 +1330,13 @@
   </required>
   <optional>
    <package>
+    <name>Horde_Text_Filter_Csstidy</name>
+    <channel>pear.horde.org</channel>
+    <min>1.0.0</min>
+    <max>2.0.0</max>
+    <exclude>2.0.0</exclude>
+   </package>
+   <package>
     <name>Horde_Vfs</name>
     <channel>pear.horde.org</channel>
     <min>1.0.0</min>
@@ -1467,6 +1458,7 @@
    <install as="imp/lib/Flag/System/Signed.php" name="lib/Flag/System/Signed.php" />
    <install as="imp/lib/Flag/System/Unseen.php" name="lib/Flag/System/Unseen.php" />
    <install as="imp/lib/Imap/Acl.php" name="lib/Imap/Acl.php" />
+   <install as="imp/lib/Imap/Exception.php" name="lib/Imap/Exception.php" />
    <install as="imp/lib/Imap/Thread.php" name="lib/Imap/Thread.php" />
    <install as="imp/lib/Imap/Tree.php" name="lib/Imap/Tree.php" />
    <install as="imp/lib/LoginTasks/SystemTask/GarbageCollection.php" name="lib/LoginTasks/SystemTask/GarbageCollection.php" />
@@ -2142,9 +2134,22 @@
     <release>stable</release>
     <api>stable</api>
    </stability>
-   <date>2011-04-13</date>
+   <date>2011-04-20</date>
    <license uri="http://www.gnu.org/licenses/gpl.html">GPL</license>
    <notes>
+* [mms] Fix resuming reply drafts in HTML mode (Bug #9928).
+* [mms] Fix updating flags/logs on original messages after resuming from draft.
+* [mms] Fix flagging messages in search mailboxes in dynamic view.
+* [mms] Don&apos;t attempt to poll non-IMAP mailboxes (Bug #9896).
+* [mms] Fix deleting attachments from compose message in dynamic view (Bug #9899).
+* [mms] Newmail portal block can now be configured to auto-update.
+* [mms] Fix deleteMessages and flagMessages API calls (Bug #9888).
+* [mms] More intelligent polling in dynamic view (Request #9808).
+* [mms] Fix spurious viewport loading in rare situations (Bug #9768).
+* [mms] Show human readable message in multipart/report parts in the richest
+        format possible (Bug #9873).
+* [mms] Fix unneeded body part downloads in alternative parts (Bug #9862).
+* [mms] Fix importing PGP private keys.
 * [mms] More intelligent part naming if name is not specified in the message (Request #9853).
 * [jan] Avoid double escaping of folder names in sent-mail drop down list.
 * [jan] Fix translation of special folders on certain IMAP servers.
@@ -2156,6 +2161,20 @@
 * [mms] Fix composing messages in mobile view.
 * [mms] IMP will refuse to work with POP3 servers that don&apos;t support UIDL.
 * [mms] Many POP3 fixes.
+   </notes>
+  </release>
+  <release>
+   <version>
+    <release>5.0.2</release>
+    <api>5.0.0</api></version>
+   <stability>
+    <release>stable</release>
+    <api>stable</api></stability>
+   <date>2011-04-22</date>
+   <license uri="http://www.gnu.org/licenses/gpl.html">GPL</license>
+   <notes>
+* [mms] Consolidate IMAP error handling code in IMP_Imap_Exception.
+* [mms] Use translated namespace name if available.
    </notes>
   </release>
  </changelog>
