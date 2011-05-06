@@ -13,6 +13,7 @@
  * @license  http://www.fsf.org/copyleft/gpl.html GPL
  * @package  IMP
  *
+ * @property boolean $changed  If true, this object has changed.
  * @property boolean $imap  If true, this is an IMAP connection.
  * @property boolean $pop3  If true, this is a POP3 connection.
  */
@@ -29,6 +30,7 @@ class IMP_Imap implements Serializable
     const ACCESS_READONLY = 100;
     const ACCESS_FILTERS = 101;
     const ACCESS_SORT = 102;
+    const ACCESS_SORTTHREAD = 103;
 
     /**
      * The Horde_Imap_Client object.
@@ -45,11 +47,11 @@ class IMP_Imap implements Serializable
     static protected $_config;
 
     /**
-     * Access cache.
+     * Has this object changed?
      *
-     * @var array
+     * @var boolean
      */
-    protected $_access = array();
+    protected $_changed = false;
 
     /**
      * Have we logged into server yet?
@@ -59,6 +61,15 @@ class IMP_Imap implements Serializable
     protected $_login = false;
 
     /**
+     * Mailbox data cache. Entries:
+     *   - s: (boolean) Are UIDS sticky?
+     *   - v: (integer) UIDVALIDITY
+     *
+     * @var array
+     */
+    protected $_mboxes = array();
+
+    /**
      * Default namespace.
      *
      * @var array
@@ -66,17 +77,20 @@ class IMP_Imap implements Serializable
     protected $_nsdefault = null;
 
     /**
-     * UIDVALIDITY check cache.
+     * Temporary data cache (destroyed at end of request).
      *
      * @var array
      */
-    protected $_uidvalid = array();
+    protected $_temp = array();
 
     /**
      */
     public function __get($key)
     {
         switch ($key) {
+        case 'changed':
+            return $this->_changed || ($this->ob && $this->ob->changed);
+
         case 'imap':
             return $this->ob && ($this->ob instanceof Horde_Imap_Client_Socket);
 
@@ -92,7 +106,8 @@ class IMP_Imap implements Serializable
      * @param string $password  The password to authenticate with.
      * @param string $key       Create a new object using this server key.
      *
-     * @return boolean  The object on success, false on error.
+     * @return mixed  A Horde_Imap_Client_Base object on success, false on
+     *                error.
      */
     public function createImapObject($username, $password, $key)
     {
@@ -198,10 +213,10 @@ class IMP_Imap implements Serializable
         if ($this->imap) {
             $special = IMP_Mailbox::getSpecialMailboxes();
 
-            $this->ob->fetchCacheIgnore(array(
+            $this->ob->fetchCacheIgnore(array_filter(array(
                 strval($special[IMP_Mailbox::SPECIAL_SPAM]),
                 strval($special[IMP_Mailbox::SPECIAL_TRASH])
-            ));
+            )));
         }
     }
 
@@ -216,12 +231,12 @@ class IMP_Imap implements Serializable
     {
         switch ($right) {
         case self::ACCESS_FOLDERS:
+        case self::ACCESS_TRASH:
             return (!empty($GLOBALS['conf']['user']['allow_folders']) &&
                     !$this->pop3);
 
         case self::ACCESS_FLAGS:
         case self::ACCESS_SEARCH:
-        case self::ACCESS_TRASH:
         case self::ACCESS_UNSEEN:
             return !$this->pop3;
         }
@@ -245,8 +260,8 @@ class IMP_Imap implements Serializable
 
         if (!$right) {
             return false;
-        } elseif (isset($this->_access[$mbox_key][$right])) {
-            return $this->_access[$mbox_key][$right];
+        } elseif (isset($this->_temp[$mbox_key]['access'][$right])) {
+            return $this->_temp[$mbox_key]['access'][$right];
         }
 
         switch ($right) {
@@ -261,16 +276,25 @@ class IMP_Imap implements Serializable
             } catch (Horde_Exception_HookNotSet $e) {}
 
             /* This check can only be done for regular IMAP mailboxes
-             * UIDNOTSTICKY not valid for POP3). */
-            if (!$res && $this->imap && !$mailbox->search) {
-                try {
-                    $status = $this->ob->status($mbox_key, Horde_Imap_Client::STATUS_UIDNOTSTICKY);
-                    $res = $status['uidnotsticky'];
-                } catch (Horde_Imap_Client_Exception $e) {}
+             * (UIDNOTSTICKY not valid for POP3). */
+            if (!$res && $this->imap) {
+                if (isset($this->_mboxes[$mbox_key]['s'])) {
+                    $res = !$this->_mboxes[$mbox_key]['s'];
+                } else {
+                    if ($mailbox->search) {
+                        try {
+                            $status = $this->ob->status($mbox_key, Horde_Imap_Client::STATUS_UIDNOTSTICKY);
+                            $res = $status['uidnotsticky'];
+                        } catch (Horde_Imap_Client_Exception $e) {}
+                    }
+                    $this->_mboxes[$mbox_key]['s'] = !$res;
+                    $this->_changed = true;
+                }
             }
             break;
 
         case self::ACCESS_SORT:
+        case self::ACCESS_SORTTHREAD:
             /* Although possible to abstract other sorting methods, all other
              * non-sequence methods require a download of ALL messages, which
              * is too much overhead.*/
@@ -278,7 +302,7 @@ class IMP_Imap implements Serializable
             break;
         }
 
-        $this->_access[$mbox_key][$right] = $res;
+        $this->_temp[$mbox_key]['access'][$right] = $res;
 
         return $res;
     }
@@ -293,8 +317,6 @@ class IMP_Imap implements Serializable
      */
     public function checkUidvalidity(IMP_Mailbox $mailbox)
     {
-        global $session;
-
         // POP3 does not support UIDVALIDITY.
         if ($this->pop3) {
             return;
@@ -302,19 +324,43 @@ class IMP_Imap implements Serializable
 
         $mbox_str = strval($mailbox);
 
-        if (!isset($this->_uidvalid[$mbox_str])) {
+        if (isset($this->_temp[$mbox_str]['v'])) {
+            $error = !empty($this->_temp[$mbox_str]['v']);
+        } else {
             $status = $this->ob->status($mailbox, Horde_Imap_Client::STATUS_UIDVALIDITY);
-            $val = $session->get('imp', 'uidvalid/' . $mailbox);
-            $session->set('imp', 'uidvalid/' . $mailbox, $status['uidvalidity']);
-
-            $this->_uidvalid[$mbox_str] = (!is_null($val) && ($status['uidvalidity'] != $val));
+            $error = !empty($this->_mboxes[$mbox_str]['v']) &&
+                ($status['uidvalidity'] != $this->_mboxes[$mbox_str]['v']);
+            $this->_mboxes[$mbox_str]['v'] = $status['uidvalidity'];
+            $this->_changed = true;
         }
 
-        if ($this->_uidvalid[$mbox_str]) {
+        if ($error) {
             throw new IMP_Exception(_("Mailbox structure on server has changed."));
         }
 
-        return $session->get('imp', 'uidvalid/' . $mbox_str);
+        return $this->_mboxes[$mbox_str]['v'];
+    }
+
+    /**
+     * Return the list of permanent flags available to set in the mailbox.
+     *
+     * @param IMP_Mailbox $mailbox  The mailbox to query.
+     *
+     * @return IMP_Imap_PermanentFlags  A permanent flags object.
+     */
+    public function getPermanentFlags(IMP_Mailbox $mailbox)
+    {
+        if ($this->access(self::ACCESS_FLAGS)) {
+            try {
+                /* Make sure we are in R/W mailbox mode (SELECT). No flags are
+                 * allowed in EXAMINE mode. */
+                $this->openMailbox($mailbox, Horde_Imap_Client::OPEN_READWRITE);
+                $status = $this->status($mailbox, Horde_Imap_Client::STATUS_FLAGS | Horde_Imap_Client::STATUS_PERMFLAGS);
+                return new IMP_Imap_PermanentFlags($status['permflags'], $status['flags']);
+            } catch (Horde_Imap_Client_Exception $e) {}
+        }
+
+        return new IMP_Imap_PermanentFlags();
     }
 
     /**
@@ -381,6 +427,7 @@ class IMP_Imap implements Serializable
             foreach ($this->getNamespaceList() as $val) {
                 if ($val['type'] == Horde_Imap_Client::NS_PERSONAL) {
                     $this->_nsdefault = $val;
+                    $this->_changed = true;
                     break;
                 }
             }
@@ -433,6 +480,12 @@ class IMP_Imap implements Serializable
     {
         if (!$this->ob || !method_exists($this->ob, $method)) {
             throw new BadMethodCallException(sprintf('%s: Invalid method call "%s".', __CLASS__, $method));
+        }
+
+        switch ($method) {
+        case 'search':
+            $params = call_user_func_array(array($this, '_search'), $params);
+            break;
         }
 
         try {
@@ -507,19 +560,65 @@ class IMP_Imap implements Serializable
         case 'createMailbox':
         case 'renameMailbox':
             // Mailbox is first parameter.
-            unset($this->_uidvalid[$params[0]]);
-            $GLOBALS['session']->remove('imp', 'uidvalid/' . $params[0]);
+            unset($this->_mboxes[$params[0]]);
+            $this->_changed = true;
             break;
 
         case 'login':
             if (!$this->_login) {
-                $this->_login = true;
+                $this->_changed = $this->_login = true;
                 $this->updateFetchIgnore();
             }
             break;
         }
 
         return $result;
+    }
+
+    /**
+     * Prepares an IMAP search query.  Needed because certain configuration
+     * parameters may need to be dynamically altered before passed to the
+     * IMAP Client object.
+     *
+     * @param IMP_Mailbox $mailbox                   The mailbox to search.
+     * @param Horde_Imap_Client_Search_Query $query  The search query object.
+     * @param array $opts                            Additional options.
+     *
+     * @return array  Parameters to use in the search() call.
+     */
+    protected function _search(IMP_Mailbox $mailbox, $query, $opts)
+    {
+        /* If doing a from/to search, use display sorting if possible.
+         * Although there is a fallback to a PHP-based display sort, for
+         * performance reasons only do a display sort if it is supported
+         * on the server. */
+        if ($this->accessMailbox($mailbox, IMP_Imap::ACCESS_SORT) &&
+            !empty($opts['sort'])) {
+            $sort_cap = $this->queryCapability('SORT');
+
+            if (is_array($sort_cap) && in_array('DISPLAY', $sort_cap)) {
+                $pos = array_search(Horde_Imap_Client::SORT_FROM, $opts['sort']);
+                if ($pos !== false) {
+                    $opts['sort'][$pos] = Horde_Imap_Client::SORT_DISPLAYFROM;
+                }
+
+                $pos = array_search(Horde_Imap_Client::SORT_TO, $opts['sort']);
+                if ($pos !== false) {
+                    $opts['sort'][$pos] = Horde_Imap_Client::SORT_DISPLAYTO;
+                }
+            }
+        }
+
+        /* Make sure we search in the proper charset. */
+        if ($query) {
+            $query = clone $query;
+            $imap_charset = $this->validSearchCharset('UTF-8')
+                ? 'UTF-8'
+                : 'US-ASCII';
+            $query->charset($imap_charset, array('Horde_String', 'convertCharset'));
+        }
+
+        return array($mailbox, $query, $opts);
     }
 
     /* Static methods. */
@@ -585,7 +684,8 @@ class IMP_Imap implements Serializable
         return serialize(array(
             $this->ob,
             $this->_nsdefault,
-            $this->_login
+            $this->_login,
+            $this->_mboxes
         ));
     }
 
@@ -596,7 +696,8 @@ class IMP_Imap implements Serializable
         list(
             $this->ob,
             $this->_nsdefault,
-            $this->_login
+            $this->_login,
+            $this->_mboxes
         ) = unserialize($data);
     }
 

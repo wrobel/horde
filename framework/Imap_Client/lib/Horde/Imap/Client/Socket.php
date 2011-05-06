@@ -779,6 +779,10 @@ class Horde_Imap_Client_Socket extends Horde_Imap_Client_Base
         $condstore = false;
         $qresync = isset($this->_init['enabled']['QRESYNC']);
 
+        /* Don't sync mailbox if we are reopening R/W - we would catch any
+         * mailbox changes from an untagged request. */
+        $reopen = ($this->_selected == $mailbox);
+
         /* Let the 'CLOSE' response code handle mailbox switching if QRESYNC
          * is active. */
         if (empty($this->_temp['mailbox']['name']) ||
@@ -795,7 +799,7 @@ class Horde_Imap_Client_Socket extends Horde_Imap_Client_Base
         );
 
         /* If QRESYNC is available, synchronize the mailbox. */
-        if ($qresync) {
+        if (!$reopen && $qresync) {
             $this->_initCache();
             $metadata = $this->cache->getMetaData($mailbox, null, array('HICmodseq', 'uidvalid'));
 
@@ -823,7 +827,8 @@ class Horde_Imap_Client_Socket extends Horde_Imap_Client_Base
                     );
                 }
             }
-        } elseif (!isset($this->_init['enabled']['CONDSTORE']) &&
+        } elseif (!$reopen &&
+                  !isset($this->_init['enabled']['CONDSTORE']) &&
                   $this->_initCache() &&
                   $this->queryCapability('CONDSTORE')) {
             /* Activate CONDSTORE now if ENABLE is not available. */
@@ -1237,6 +1242,14 @@ class Horde_Imap_Client_Socket extends Horde_Imap_Client_Base
                          * if UIDPLUS is not supported, we assume the UIDs
                          * are sticky. */
                         $data[$val] = false;
+                    } elseif ($key == Horde_Imap_Client::STATUS_PERMFLAGS) {
+                        /* If PERMFLAGS is not returned by server, must assume
+                         * that all flags can be changed permanently. See
+                         * RFC 3501 [6.3.1]. */
+                        $data[$val] = isset($this->_temp['mailbox'][$items[Horde_Imap_Client::STATUS_FLAGS]])
+                            ? $this->_temp['mailbox'][$items[Horde_Imap_Client::STATUS_FLAGS]]
+                            : array();
+                        $data[$val][] = "\\*";
                     } elseif (in_array($key, array(Horde_Imap_Client::STATUS_FIRSTUNSEEN, Horde_Imap_Client::STATUS_UNSEEN))) {
                         /* If we already know there are no messages in the
                          * current mailbox, we know there is no firstunseen
@@ -1495,8 +1508,7 @@ class Horde_Imap_Client_Socket extends Horde_Imap_Client_Base
         if (is_null($s_res) && ($list_msgs || $use_cache)) {
             $s_res = $uidplus
                 ? $this->_getSeqUidLookup($options['ids'], true)
-                : $this->_getSeqUidLookup(new Horde_Imap_Client_Ids(Horde_Imap_Client_Ids::ALL, true)
-            );
+                : $this->_getSeqUidLookup(new Horde_Imap_Client_Ids(Horde_Imap_Client_Ids::ALL, true));
         }
 
         /* Always use UID EXPUNGE if available. */
@@ -1587,6 +1599,7 @@ class Horde_Imap_Client_Socket extends Horde_Imap_Client_Base
          * IMAP servers will send an unneeded EXISTS response after the
          * EXPUNGE list is processed (see RFC 3501 [7.4.1]). */
         --$this->_temp['mailbox']['messages'];
+        $this->_temp['mailbox']['lookup'] = array();
     }
 
     /**
@@ -1613,6 +1626,7 @@ class Horde_Imap_Client_Socket extends Horde_Imap_Client_Base
              * EXPUNGE command and will be processed in _expunge(). */
             $this->_temp['vanished'] = $this->utils->fromSequenceString($data[0]);
             $this->_temp['mailbox']['messages'] -= count($this->_temp['vanished']);
+            $this->_temp['mailbox']['lookup'] = array();
         }
     }
 
@@ -2609,6 +2623,7 @@ class Horde_Imap_Client_Socket extends Horde_Imap_Client_Base
             case 'UID':
                 $uid = $data[++$i];
                 $ob->setUid($uid);
+                $this->_temp['mailbox']['lookup'][$id] = $uid;
                 break;
 
             case 'MODSEQ':
@@ -3476,6 +3491,59 @@ class Horde_Imap_Client_Socket extends Horde_Imap_Client_Base
         }
     }
 
+    /**
+     */
+    protected function _getSeqUidLookup(Horde_Imap_Client_Ids $ids,
+                                        $reverse = false)
+    {
+        $ob = array(
+            'lookup' => array(),
+            'uids' => new Horde_Imap_Client_Ids()
+        );
+
+        if (!empty($this->_temp['mailbox']['lookup']) &&
+            count($ids) &&
+            ($ids->sequence || $reverse)) {
+            $need = new Horde_Imap_Client_Ids(null, $ids->sequence);
+            $t = $this->_temp['mailbox']['lookup'];
+
+            foreach ($ids as $val) {
+                if ($ids->sequence) {
+                    if (isset($t[$val])) {
+                        $ob['lookup'][$val] = $t[$val];
+                        $ob['uids']->add($t[$val]);
+                    } else {
+                        $need->add($val);
+                    }
+                } else {
+                    if (($key = array_search($val, $t)) !== false) {
+                        $ob['lookup'][$key] = $val;
+                        $ob['uids']->add($val);
+                    } else {
+                        $need->add($val);
+                    }
+                }
+            }
+
+            if (!count($need)) {
+                return $ob;
+            }
+
+            $ids = $need;
+        }
+
+        $res = parent::_getSeqUidLookup($ids, $reverse);
+
+        if (!count($ob['uids'])) {
+            return $res;
+        }
+
+        $ob['lookup'] = array_merge($ob['lookup'], $res['lookup']);
+        $ob['uids']->add($res['uids']);
+
+        return $ob;
+    }
+
     /* Internal functions. */
 
     /**
@@ -4305,7 +4373,9 @@ class Horde_Imap_Client_Socket extends Horde_Imap_Client_Base
         case 'CLOSED':
             // Defined by RFC 5162 [3.7]
             if (isset($this->_temp['qresyncmbox'])) {
-                $this->_temp['mailbox'] = array('name' => $this->_temp['qresyncmbox']);
+                $this->_temp['mailbox'] = array(
+                    'name' => $this->_temp['qresyncmbox']
+                );
                 $this->_selected = $this->_temp['qresyncmbox'];
             }
             break;
