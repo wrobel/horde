@@ -2910,7 +2910,6 @@ var DimpBase = {
         // Check for unseen messages
         if (ob.po) {
             li.store('u', '');
-            this.setFolderLabel(mbox, ob.u);
         }
 
         switch (ftype) {
@@ -3096,7 +3095,7 @@ var DimpBase = {
     blacklist: function(blacklist, opts)
     {
         opts = opts || {};
-        this._doMsgAction('blacklist', opts, { blacklist: blacklist });
+        this._doMsgAction('blacklist', opts, { blacklist: Number(blacklist) });
     },
 
     // opts = 'mailbox', 'uid'
