@@ -76,7 +76,7 @@ class Whups_Mail {
         $body_id = $message->findBody();
         if ($body_id) {
             $part = $message->getPart($body_id);
-            $comment .= Horde_String::convertCharset($part->transferDecode(), $part->getCharset(), 'UTF-8');
+            $comment .= Horde_String::convertCharset($part->getContents(), $part->getCharset(), 'UTF-8');
         } else {
             $comment .= _("[ Could not render body of message. ]");
         }
@@ -105,7 +105,7 @@ class Whups_Mail {
 
         // Authenticate as the correct Horde user.
         if (!empty($auth_user) && $auth_user != $GLOBALS['registry']->getAuth()) {
-            Horde_Auth::setAuth($auth_user, array());
+            $GLOBALS['registry']->setAuth($auth_user, array());
         }
 
         // See if we can match this message to an existing ticket.

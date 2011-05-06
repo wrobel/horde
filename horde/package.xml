@@ -28,10 +28,10 @@
   <email>mrubinsk@horde.org</email>
   <active>yes</active>
  </lead>
- <date>2011-04-20</date>
- <time>22:14:10</time>
+ <date>2011-05-03</date>
+ <time>17:43:51</time>
  <version>
-  <release>4.0.2</release>
+  <release>4.0.3</release>
   <api>4.0.0</api>
  </version>
  <stability>
@@ -40,8 +40,9 @@
  </stability>
  <license uri="http://www.gnu.org/copyleft/lesser.html">LGPL</license>
  <notes>
-* [jan] Fix adding categories.
-* [jan] Don&apos;t check for outdated DB schemas if database support is disabled (Bug #9986).
+* [jan] Update DataTree conversion scripts for Horde 4.
+* [jan] Fix rendering of DataTree browse tree.
+* [mjr] Fix issue causing credentials to be lost when accessing the API during ActiveSync requests (Bug #9733).
  </notes>
  <contents>
   <dir baseinstalldir="/" name="/">
@@ -59,6 +60,9 @@
      <dir name="en">
       <file name="help.xml" role="horde" />
      </dir> <!-- /admin/locale/en -->
+     <dir name="es">
+      <file name="help.xml" role="horde" />
+     </dir> <!-- /admin/locale/es -->
      <dir name="eu">
       <file name="help.xml" role="horde" />
      </dir> <!-- /admin/locale/eu -->
@@ -101,7 +105,6 @@
     <file name="horde-db-migrate" role="script" />
     <file name="horde-import-squirrelmail-prefs" role="script" />
     <file name="horde-memcache-stats" role="script" />
-    <file name="horde-migrate-user-categories" role="script" />
     <file name="horde-move-history-out-of-datatree" role="script" />
     <file name="horde-run-task" role="script" />
     <file name="horde-set-perms" role="script" />
@@ -2398,6 +2401,7 @@
    <install as="admin/config/scripts.php" name="admin/config/scripts.php" />
    <install as="admin/locale/de/help.xml" name="admin/locale/de/help.xml" />
    <install as="admin/locale/en/help.xml" name="admin/locale/en/help.xml" />
+   <install as="admin/locale/es/help.xml" name="admin/locale/es/help.xml" />
    <install as="admin/locale/eu/help.xml" name="admin/locale/eu/help.xml" />
    <install as="admin/locale/fi/help.xml" name="admin/locale/fi/help.xml" />
    <install as="admin/locale/hr/help.xml" name="admin/locale/hr/help.xml" />
@@ -2416,7 +2420,6 @@
    <install as="horde-db-migrate" name="bin/horde-db-migrate" />
    <install as="horde-import-squirrelmail-prefs" name="bin/horde-import-squirrelmail-prefs" />
    <install as="horde-memcache-stats" name="bin/horde-memcache-stats" />
-   <install as="horde-migrate-user-categories" name="bin/horde-migrate-user-categories" />
    <install as="horde-move-history-out-of-datatree" name="bin/horde-move-history-out-of-datatree" />
    <install as="horde-run-task" name="bin/horde-run-task" />
    <install as="horde-set-perms" name="bin/horde-set-perms" />
@@ -4068,11 +4071,27 @@
    <stability>
     <release>stable</release>
     <api>stable</api></stability>
-   <date>2011-04-20</date>
+   <date>2011-05-03</date>
    <license uri="http://www.gnu.org/copyleft/lesser.html">LGPL</license>
    <notes>
+* [mms] Fix authentication failure when TOS is not accepted.
 * [jan] Fix adding categories.
 * [jan] Don&apos;t check for outdated DB schemas if database support is disabled (Bug #9986).
+   </notes>
+  </release>
+  <release>
+   <version>
+    <release>4.0.3</release>
+    <api>4.0.0</api></version>
+   <stability>
+    <release>stable</release>
+    <api>stable</api></stability>
+   <date>2011-05-03</date>
+   <license uri="http://www.gnu.org/copyleft/lesser.html">LGPL</license>
+   <notes>
+* [jan] Update DataTree conversion scripts for Horde 4.
+* [jan] Fix rendering of DataTree browse tree.
+* [mjr] Fix issue causing credentials to be lost when accessing the API during ActiveSync requests (Bug #9733).
    </notes>
   </release>
  </changelog>

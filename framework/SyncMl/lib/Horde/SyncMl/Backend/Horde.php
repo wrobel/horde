@@ -52,7 +52,7 @@ class Horde_SyncMl_Backend_Horde extends Horde_SyncMl_Backend
         if ($this->_backendMode == Horde_SyncMl_Backend::MODE_TEST) {
             /* After a session the user gets automatically logged out, so we
              * have to login again. */
-            Horde_Auth::setAuth($this->_user, array());
+            $GLOBALS['registry']->setAuth($this->_user, array());
         }
     }
 
@@ -504,8 +504,10 @@ class Horde_SyncMl_Backend_Horde extends Horde_SyncMl_Backend
      */
     public function setAuthenticated($username, $credData)
     {
-        Horde_Auth::setAuth($username, $credData);
-        return $GLOBALS['registry']->getAuth();
+        global $registry;
+
+        $registry->setAuth($username, $credData);
+        return $registry->getAuth();
     }
 
     /**
@@ -567,7 +569,15 @@ class Horde_SyncMl_Backend_Horde extends Horde_SyncMl_Backend
             . 'WHERE syncml_syncpartner = ? AND syncml_db = ? AND '
             . 'syncml_uid = ?';
         $values = array($this->_syncDeviceID, $database, $this->_user);
-        return $this->_db->selectOne($query, $values);
+        try {
+            $res = $this->_db->selectOne($query, $values);
+            return array(
+                $res['syncml_clientanchor'],
+                $res['syncml_serveranchor']
+            );
+        } catch (Horde_Db_Exception $e) {
+            return false;
+        }
     }
 
     /**
@@ -853,7 +863,7 @@ class Horde_SyncMl_Backend_Horde extends Horde_SyncMl_Backend
          * user data. */
         $GLOBALS['conf']['auth']['admins'][] = $user;
 
-        Horde_Auth::setAuth($user, array());
+        $GLOBALS['registry']->setAuth($user, array());
     }
 
     /**
@@ -872,7 +882,7 @@ class Horde_SyncMl_Backend_Horde extends Horde_SyncMl_Backend
 
         /* We need to be logged in to call removeUserData, otherwise we run
          * into permission issues. */
-        Horde_Auth::setAuth($this->_user, array());
+        $GLOBALS['registry']->setAuth($this->_user, array());
 
         print "\nCleaning up: removing test user data and test user...";
         $registry->removeUser($this->_user);
