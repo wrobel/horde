@@ -61,19 +61,20 @@ class IMP_Ui_Message
     /**
      * Check if we need to send a MDN, and send if needed.
      *
-     * @param string $mailbox              The mailbox of the message.
+     * @param IMP_Mailbox $mailbox         The mailbox of the message.
      * @param integer $uid                 The UID of the message.
      * @param Horde_Mime_Headers $headers  The headers of the message.
      * @param boolean $confirmed           Has the MDN request been confirmed?
      *
      * @return boolean  True if the MDN request needs to be confirmed.
      */
-    public function MDNCheck($mailbox, $uid, $headers, $confirmed = false)
+    public function MDNCheck(IMP_Mailbox $mailbox, $uid, $headers,
+                             $confirmed = false)
     {
         $imp_imap = $GLOBALS['injector']->getInstance('IMP_Factory_Imap')->create();
         $pref_val = $GLOBALS['prefs']->getValue('send_mdn');
 
-        if (!$pref_val || IMP_Mailbox::get($mailbox)->readonly) {
+        if (!$pref_val || $mailbox->readonly) {
             return false;
         }
 
@@ -90,9 +91,7 @@ class IMP_Ui_Message
         /* See if we have already processed this message. */
         /* 1st test: MDNSent keyword (RFC 3503 [3.1]). */
         try {
-            $status = $imp_imap->status($mailbox, Horde_Imap_Client::STATUS_PERMFLAGS);
-            if (in_array('\\*', $status['permflags']) ||
-                in_array('$mdnsent', $status['permflags'])) {
+            if ($imp_imap->getPermanentFlags($mailbox)->allowed('$mdnsent')) {
                 $mdn_flag = true;
 
                 $query = new Horde_Imap_Client_Fetch_Query();
@@ -427,8 +426,7 @@ class IMP_Ui_Message
      */
     public function moveAfterAction()
     {
-        return ($GLOBALS['injector']->getInstance('IMP_Factory_Imap')->create()->imap &&
-                !IMP::$mailbox->hideDeletedMsgs() &&
+        return (!IMP::$mailbox->hideDeletedMsgs() &&
                 !$GLOBALS['prefs']->getValue('use_trash'));
     }
 
