@@ -1,7 +1,26 @@
 ----------
-v5.0.2-git
+v5.0.4-git
 ----------
 
+[mms] Fix adding flags in advanced search (Bug #10049).
+[mms] Fix display of subfolders in mobile view (Bug #10043).
+[mms] Improved determination of available flags in a mailbox.
+[mms] Fix adding to whitelist from dynamic view (Bug #10036;
+      rui.carneiro@portugalmail.net).
+
+
+------
+v5.0.3
+------
+
+[jan] Add missing files to package.
+
+
+------
+v5.0.2
+------
+
+[mms] Add quick flag filtering to traditional view.
 [mms] Fix viewing linked attachments (Bug #9972).
 [mms] Add support for the content-id access type of message/external-body.
 [mms] Consolidate IMAP error handling code in IMP_Imap_Exception.
