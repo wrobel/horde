@@ -1397,7 +1397,17 @@ class Turba_Driver implements Countable
                 if ($fields && !isset($fields['EMAIL'])) {
                     break;
                 }
-                $vcard->setAttribute('EMAIL', Horde_Icalendar_Vcard::getBareEmail($val));
+                if ($version == '2.1') {
+                    $vcard->setAttribute(
+                        'EMAIL',
+                        Horde_Icalendar_Vcard::getBareEmail($val),
+                        array('INTERNET' => null));
+                } else {
+                    $vcard->setAttribute(
+                        'EMAIL',
+                        Horde_Icalendar_Vcard::getBareEmail($val),
+                        array('TYPE' => 'INTERNET'));
+                }
                 break;
 
             case 'homeEmail':
@@ -2371,6 +2381,14 @@ class Turba_Driver implements Countable
                 $message->email1address = Horde_Icalendar_Vcard::getBareEmail($value);
                 break;
 
+            case 'homeEmail':
+                $message->email2address = Horde_Icalendar_Vcard::getBareEmail($value);
+                break;
+
+            case 'workEmail':
+                $message->email3address = Horde_Icalendar_Vcard::getBareEmail($value);
+                break;
+
             case 'title':
                 $message->jobtitle = $value;
                 break;
@@ -2492,7 +2510,12 @@ class Turba_Driver implements Countable
         if (!$message->isGhosted('email1address')) {
             $hash['email'] = Horde_Icalendar_Vcard::getBareEmail($message->email1address);
         }
-
+        if (!$message->isGhosted('email2address')) {
+            $hash['homeEmail'] = Horde_Icalendar_Vcard::getBareEmail($message->email2address);
+        }
+        if (!$message->isGhosted('email3address')) {
+            $hash['workEmail'] = Horde_Icalendar_Vcard::getBareEmail($message->email3address);
+        }
         /* Categories */
         if (count($message->categories)) {
             $hash['category'] = implode('|', $message->categories);

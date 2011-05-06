@@ -308,6 +308,18 @@ abstract class Horde_Imap_Client_Base implements Serializable
         if (is_null($val)) {
             unset($this->_init[$key]);
         } else {
+            switch ($key) {
+            case 'capability':
+                if (!empty($this->_params['capability_ignore'])) {
+                    if ($this->_debug &&
+                        ($ignored = array_intersect_key($val, array_flip($this->_params['capability_ignore'])))) {
+                        fwrite($this->_debug, sprintf(">>> IGNORING these IMAP capabilities: %s\n", implode(', ', array_keys($ignored))));
+                    }
+                    $val = array_diff_key($val, array_flip($this->_params['capability_ignore']));
+                }
+                break;
+            }
+
             $this->_init[$key] = $val;
         }
         $this->changed = true;
@@ -434,13 +446,7 @@ abstract class Horde_Imap_Client_Base implements Serializable
     public function capability()
     {
         if (!isset($this->_init['capability'])) {
-            $capability = $this->_capability();
-
-            if (!empty($this->_params['capability_ignore'])) {
-                $capability = array_diff_key($capability, array_flip($this->_params['capability_ignore']));
-            }
-
-            $this->_setInit('capability', $capability);
+            $this->_setInit('capability', $this->_capability());
         }
 
         return $this->_init['capability'];
@@ -1303,6 +1309,10 @@ abstract class Horde_Imap_Client_Base implements Serializable
                                    $flags = Horde_Imap_Client::STATUS_ALL,
                                    array $opts = array())
     {
+        if (empty($mailboxes)) {
+            return array();
+        }
+
         $ret = null;
 
         $opts = array_merge(array(
@@ -1310,7 +1320,11 @@ abstract class Horde_Imap_Client_Base implements Serializable
             'sort_delimiter' => '.'
         ), $opts);
 
-        if ($this->queryCapability('LIST-STATUS')) {
+        /* Optimization: If there is one mailbox in list, and we are already
+         * in that mailbox, we should just do a straight STATUS call. */
+        if ($this->queryCapability('LIST-STATUS') &&
+            ((count($mailboxes) != 1) ||
+            Horde_Imap_Client_Utf7imap::Utf8ToUtf7Imap(reset($mailboxes)) != $this->_selected)) {
             try {
                 $ret = array();
                 foreach ($this->listMailboxes($mailboxes, Horde_Imap_Client::MBOX_ALL, array_merge($opts, array('status' => $flags))) as $val) {
@@ -1685,7 +1699,42 @@ abstract class Horde_Imap_Client_Base implements Serializable
             }
         }
 
-        $ret = $this->_search($query, $options);
+        /* Optimization: Catch when there are no messages in a mailbox. */
+        $status_res = $this->status($this->_selected, Horde_Imap_Client::STATUS_MESSAGES | Horde_Imap_Client::STATUS_HIGHESTMODSEQ);
+        if ($status_res['messages'] ||
+            in_array(Horde_Imap_Client::SEARCH_RESULTS_SAVE, $options['results'])) {
+            $ret = $this->_search($query, $options);
+        } else {
+            $ret = array(
+                'count' => 0
+            );
+
+            foreach ($options['results'] as $val) {
+                switch ($val) {
+                case Horde_Imap_Client::SEARCH_RESULTS_MATCH:
+                    $ret['match'] = new Horde_Imap_Client_Ids();
+                    break;
+
+                case Horde_Imap_Client::SEARCH_RESULTS_MAX:
+                    $ret['max'] = null;
+                    break;
+
+                case Horde_Imap_Client::SEARCH_RESULTS_MIN:
+                    $ret['min'] = null;
+                    break;
+
+                case Horde_Imap_Client::SEARCH_RESULTS_MIN:
+                    if (isset($status_res['highestmodseq'])) {
+                        $ret['modseq'] = $status_res['highestmodseq'];
+                    }
+                    break;
+
+                case Horde_Imap_Client::SEARCH_RESULTS_RELEVANCY:
+                    $ret['relevancy'] = array();
+                    break;
+                }
+            }
+        }
 
         if ($cache) {
             $save = $ret;
@@ -1820,7 +1869,9 @@ abstract class Horde_Imap_Client_Base implements Serializable
             }
         }
 
-        $ob = new Horde_Imap_Client_Data_Thread($this->_thread($options), empty($options['sequence']) ? 'uid' : 'sequence');
+        $status_res = $this->status($this->_selected, Horde_Imap_Client::STATUS_MESSAGES);
+
+        $ob = new Horde_Imap_Client_Data_Thread($status_res['messages'] ? $this->_thread($options) : array(), empty($options['sequence']) ? 'uid' : 'sequence');
 
         if ($cache) {
             $this->_setSearchCache($ob, $cache);
@@ -2644,8 +2695,8 @@ abstract class Horde_Imap_Client_Base implements Serializable
         } else {
             if (empty($status['uidnext'])) {
                 /* UIDNEXT is not strictly required on mailbox open. If it is
-                 * not available, use the last UID + 1 in the mailbox
-                 * instead (or 0 if mailbox is empty). */
+                 * not available, use the last UID + 1 in the mailbox instead
+                 * (or 0 if mailbox is empty). */
                 if (empty($status['messages'])) {
                     $status['uidnext'] = 0;
                 } else {
@@ -2928,12 +2979,15 @@ abstract class Horde_Imap_Client_Base implements Serializable
             if (is_null($support)) {
                 $query = new Horde_Imap_Client_Search_Query();
                 $query->charset($charset);
+                $query->ids(new Horde_Imap_Client_Ids(1, true));
                 $query->text('a');
                 try {
-                    $this->search('INBOX', $query);
+                    $this->search('INBOX', $query, array(
+                        'sequence' => true
+                    ));
                     $support = true;
                 } catch (Horde_Imap_Client_Exception $e) {
-                    /* BADCHARSET is only a MAYBE return - but there is no
+                    /* BADCHARSET is only a MAY return - but there is no
                      * other way of determining charset support. */
                     $support = ($e->getCode() != Horde_Imap_Client_Exception::BADCHARSET);
                 }
@@ -2959,7 +3013,8 @@ abstract class Horde_Imap_Client_Base implements Serializable
      * @return array  An array with 2 possible entries:
      * <pre>
      * 'lookup' - (array) The mapping of sequence numbers [keys] to UIDs
-     *            [values]. Calculated if $reverse is true.
+     *            [values]. Calculated if $reverse is true or $ids are
+     *            sequence numbers.
      * 'uids' - (Horde_Imap_Client_Ids) The list of UIDs.
      * </pre>
      */
@@ -2968,7 +3023,7 @@ abstract class Horde_Imap_Client_Base implements Serializable
     {
         $ret = array('lookup' => array());
 
-        if (!$ids->sequence && !$ids->all && !$reverse) {
+        if (count($ids) && !$ids->sequence && !$reverse) {
             $ret['uids'] = $ids;
             return $ret;
         }
@@ -2981,12 +3036,12 @@ abstract class Horde_Imap_Client_Base implements Serializable
         }
 
         $res = $this->search($this->_selected, $search, array(
-            'sequence' => !$ids->sequence,
+            'sequence' => !$ids->all && !$ids->sequence,
             'sort' => array(Horde_Imap_Client::SORT_SEQUENCE)
         ));
 
         if ($res['count']) {
-            $ret['uids'] = $ids->sequence
+            $ret['uids'] = ($ids->all || $ids->sequence)
                 ? $res['match']
                 : $ids;
 

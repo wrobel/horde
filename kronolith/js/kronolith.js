@@ -1227,7 +1227,7 @@ KronolithCore = {
         if (Kronolith.conf.calendars[type][calendar].show &&
             $w('day week month year agenda').include(this.view)) {
             var dates = this.viewDates(this.date, this.view);
-            this.deleteCache(null, [type, calendar]);
+            this.deleteCache([type, calendar]);
             this.loadEvents(dates[0], dates[1], this.view, [[type, calendar]]);
         }
     },
@@ -2200,6 +2200,7 @@ KronolithCore = {
             span.insert(' ')
                 .insert(new Element('img', { src: Kronolith.conf.images.recur.replace(/fff/, Kronolith.conf.calendars[calendar[0]][calendar[1]].fg.substr(1)), title: Kronolith.text.recur[event.r] }));
         } else if (event.bid) {
+            div.store('bid', event.bid);
             span.insert(' ')
                 .insert(new Element('img', { src: Kronolith.conf.images.exception.replace(/fff/, Kronolith.conf.calendars[calendar[0]][calendar[1]].fg.substr(1)), title: Kronolith.text.recur.exception }));
         }
@@ -2207,18 +2208,28 @@ KronolithCore = {
     },
 
     /**
-     * Finally removes an event from the DOM and the cache.
+     * Finally removes events from the DOM and the cache.
      *
-     * @param string event     An event id.
      * @param string calendar  A calendar name.
+     * @param string event     An event id. If empty, all events from the
+     *                         calendar are deleted.
      */
-    removeEvent: function(event, calendar)
+    removeEvent: function(calendar, event)
     {
-        this.deleteCache(event, calendar);
-        this.kronolithBody.select('div').findAll(function(el) {
+        this.deleteCache(calendar, event);
+        this.kronolithBody.select('div.kronolithEvent').findAll(function(el) {
             return el.retrieve('calendar') == calendar &&
-                el.retrieve('eventid') == event;
+                (!event || el.retrieve('eventid') == event);
         }).invoke('remove');
+    },
+
+    removeException: function(calendar, uid)
+    {
+        this.kronolithBody.select('div.kronolithEvent').findAll(function(el) {
+            if (el.retrieve('calendar') == calendar && el.retrieve('bid') == uid) {
+                this.removeEvent(calendar, el.retrieve('eventid'));
+            }
+        }.bind(this));
     },
 
     /**
@@ -2368,6 +2379,9 @@ KronolithCore = {
         }).invoke('remove');
 
         tasktypes.each(function(type) {
+            if (!this.tcache.get(type)) {
+                return;
+            }
             var tasks = this.tcache.get(type).get(tasklist);
             $H(tasks).each(function(task) {
                 switch (tasktype) {
@@ -2724,19 +2738,25 @@ KronolithCore = {
     },
 
     /**
-     * Finally removes a task from the DOM and the cache.
+     * Finally removes tasks from the DOM and the cache.
      *
-     * @param string task  A task id.
      * @param string list  A task list name.
+     * @param string task  A task id. If empty, all tasks from the list are
+     *                     deleted.
      */
-    removeTask: function(task, list)
+    removeTask: function(list, task)
     {
-        this.deleteTasksCache(task, list);
+        this.deleteTasksCache(list, task);
         $('kronolithViewTasksBody').select('tr').findAll(function(el) {
             return el.retrieve('tasklist') == list &&
-                el.retrieve('taskid') == task;
+                (!task || el.retrieve('taskid') == task);
         }).invoke('remove');
-        this.removeEvent('_tasks' + task, 'tasklists|tasks/' + list);
+        this.removeEvent('tasklists|tasks/' + list, task ? '_tasks' + task : null);
+        if ($('kronolithViewTasksBody').select('tr').length > 3) {
+            $('kronolithTasksNoItems').hide();
+        } else {
+            $('kronolithTasksNoItems').show();
+        }
     },
 
     /**
@@ -2770,7 +2790,7 @@ KronolithCore = {
                           }),
                       function(r) {
                           if (r.response.tasks && taskid) {
-                              this.removeTask(taskid, tasklist);
+                              this.removeTask(tasklist, taskid);
                           }
                           this.loadTasksCallback(r, false);
                           this.loadEventsCallback(r, false);
@@ -3408,7 +3428,12 @@ KronolithCore = {
      */
     activateAdvancedPerms: function(type)
     {
-        [$('kronolithC' + type + 'PNone'), $('kronolithC' + type + 'PAll'), $('kronolithC' + type + 'PG')].invoke('writeAttribute', 'checked', false);
+        [$('kronolithC' + type + 'PNone'),
+         $('kronolithC' + type + 'PAll'),
+         $('kronolithC' + type + 'PU'),
+         $('kronolithC' + type + 'PG')].each(function(radio) {
+            radio.checked = false;
+        });
         $('kronolithC' + type + 'PBasic').hide();
         $('kronolithC' + type + 'PAdvanced').show();
     },
@@ -3517,6 +3542,9 @@ KronolithCore = {
                 Kronolith.conf.calendars[type][r.response.id] = r.response.calendar;
                 this.insertCalendarInList(type, r.response.id, r.response.calendar);
                 this.storeCache($H(), [type, r.response.id], this.viewDates(this.date, this.view), true);
+                if (type == 'tasklists') {
+                    this.storeTasksCache($H(), this.tasktype, r.response.id.replace(/^tasks\//, ''), true);
+                }
             }
         }
         form.down('.kronolithCalendarSave').enable();
@@ -3548,10 +3576,11 @@ KronolithCore = {
             !container.childElements().size()) {
             noItems.show();
         }
-        this.deleteCache(null, [type, calendar]);
-        this.kronolithBody.select('div.kronolithEvent').findAll(function(el) {
-            return el.retrieve('calendar') == type + '|' + calendar;
-        }).invoke('remove');
+        this.removeEvent(type + '|' + calendar);
+        this.deleteCache([type, calendar]);
+        if (type == 'tasklists' && this.view == 'tasks') {
+            this.removeTask(calendar.replace(/^tasks\//, ''));
+        }
         delete Kronolith.conf.calendars[type][calendar];
     },
 
@@ -3751,10 +3780,10 @@ KronolithCore = {
     /**
      * Deletes an event or a complete calendar from the cache.
      *
-     * @param string event     An event ID or empty if deleting the calendar.
      * @param string calendar  A calendar string or array.
+     * @param string event     An event ID or empty if deleting the calendar.
      */
-    deleteCache: function(event, calendar)
+    deleteCache: function(calendar, event)
     {
         if (Object.isString(calendar)) {
             calendar = calendar.split('|');
@@ -3773,18 +3802,23 @@ KronolithCore = {
     },
 
     /**
-     * Deletes a task from the cache.
+     * Deletes tasks from the cache.
      *
-     * @param string task  A task ID.
      * @param string list  A task list string.
+     * @param string task  A task ID. If empty, all tasks from the list are
+     *                     deleted.
      */
-    deleteTasksCache: function(task, list)
+    deleteTasksCache: function(list, task)
     {
-        this.deleteCache(task, [ 'external', 'tasks/' + list ]);
+        this.deleteCache([ 'external', 'tasks/' + list ], task);
         $w('complete incomplete').each(function(type) {
             if (!Object.isUndefined(this.tcache.get(type)) &&
                 !Object.isUndefined(this.tcache.get(type).get(list))) {
-                this.tcache.get(type).get(list).unset(task);
+                if (task) {
+                    this.tcache.get(type).get(list).unset(task);
+                } else {
+                    this.tcache.get(type).unset(list);
+                }
             }
         }, this);
     },
@@ -4147,7 +4181,10 @@ KronolithCore = {
                                           this.view == 'day') {
                                           days = this.findEventDays(cal, eventid);
                                       }
-                                      this.removeEvent(eventid, cal);
+                                      this.removeEvent(cal, eventid);
+                                      if (r.response.uid) {
+                                          this.removeException(cal, r.response.uid);
+                                      }
                                       if (days && days.length) {
                                           this.reRender(days);
                                       }
@@ -4177,12 +4214,7 @@ KronolithCore = {
                               { list: tasklist, id: taskid },
                               function(r) {
                                   if (r.response.deleted) {
-                                      this.removeTask(taskid, tasklist);
-                                      if ($('kronolithViewTasksBody').select('tr').length > 3) {
-                                          $('kronolithTasksNoItems').hide();
-                                      } else {
-                                          $('kronolithTasksNoItems').show();
-                                      }
+                                      this.removeTask(tasklist, taskid);
                                   } else {
                                       elt.enable();
                                       $('kronolithViewTasksBody').select('tr').find(function(el) {
@@ -4755,7 +4787,7 @@ KronolithCore = {
 
         drop.insert(el);
         this.startLoading(cal, sig);
-        if (event.r) {
+        if (event.value.r) {
             attributes.set('rday', lastDate);
             attributes.set('cstart', this.cacheStart);
             attributes.set('cend', this.cacheEnd);
@@ -4782,7 +4814,7 @@ KronolithCore = {
                                   this.view == 'day') {
                                   days = this.findEventDays(cal, eventid);
                               }
-                              this.removeEvent(eventid, cal);
+                              this.removeEvent(cal, eventid);
                               if (days && days.length) {
                                   this.reRender(days);
                               }
@@ -4942,7 +4974,7 @@ KronolithCore = {
                 // request.
                 if (r.response.events &&
                     r.response.sig == this.eventsLoading[r.response.cal]) {
-                    this.removeEvent(event.key, event.value.calendar);
+                    this.removeEvent(event.value.calendar, event.key);
                 }
                 this.loadEventsCallback(r, false);
             }.bind(this));
@@ -5086,7 +5118,7 @@ KronolithCore = {
                       params,
                       function(r) {
                           if (!asnew && r.response.events && eventid) {
-                              this.removeEvent(eventid, cal);
+                              this.removeEvent(cal, eventid);
                           }
                           this.loadEventsCallback(r, false);
                           if (r.response.events) {

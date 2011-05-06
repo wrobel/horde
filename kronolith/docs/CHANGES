@@ -1,7 +1,23 @@
 ----------
-v3.0.2-git
+v3.0.3-git
 ----------
 
+[jan] Fix date picker in advanced search form (Bug #10039).
+[mjr] Remove visible exceptions when deleting recurring events (Bug #10013).
+[mjr] Fix issue causing listTimeObject calendars to not appear (Bug #10012).
+
+------
+v3.0.2
+------
+
+[jan] Don't show event edit links if user doesn't have edit permissions on any
+      calendar.
+[jan] Fix parsing of recurrence end date in dynamic view (Bug #10025).
+[jan] Fix displaying of new tasks in new task lists.
+[jan] Fix displaying colors of task lists.
+[jan] Delete tasks from tasks view when deleting tasks lists.
+[jan] Don't export multi-day events as multiple events to iCalendar data (Bug
+      #10007).
 [jan] Fix dragging tasks in the dynamic view.
 
 
