@@ -1,0 +1,6 @@
+From: Gunnar Wrobel <p@rdus.de>
+Subject: [PATCH] t/framework/Feed/PostHeaders
+
+Support additional post headers (such as authentication headers - e.g. blogger.com)
+
+Signed-off-by: Gunnar Wrobel <p@rdus.de>
