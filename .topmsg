@@ -1,6 +1,6 @@
 From: Gunnar Wrobel <p@rdus.de>
-Subject: [PATCH] t/framework/Xml_Element/Fix_notice_on_missing_children
+Subject: [PATCH] t/framework/Feed/Blogger_example
 
-Allows for missing children.
+An example demonstrating how to post to blogger.com.
 
 Signed-off-by: Gunnar Wrobel <p@rdus.de>
