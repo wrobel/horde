@@ -1,0 +1,6 @@
+From: Gunnar Wrobel <p@rdus.de>
+Subject: [PATCH] t/framework/Xml_Element/Fix_notice_on_missing_children
+
+Allows for missing children.
+
+Signed-off-by: Gunnar Wrobel <p@rdus.de>
