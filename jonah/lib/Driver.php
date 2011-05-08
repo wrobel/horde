@@ -46,39 +46,6 @@ class Jonah_Driver
     }
 
     /**
-     * Fetches the requested channel, while actually passing on the request to
-     * the backend _getChannel() function to do the real work.
-     *
-     * @param integer $channel_id  The channel id to fetch.
-     *
-     * @return array  The channel details as an array
-     * @throws InvalidArgumentException
-     */
-    public function getChannel($channel_id)
-    {
-        static $channel = array();
-
-        /* We need a non empty channel id. */
-        if (empty($channel_id)) {
-            throw new InvalidArgumentException(_("Missing channel id."));
-        }
-
-        /* Cache the fetching of channels. */
-        if (!isset($channel[$channel_id])) {
-            $channel[$channel_id] = $this->_getChannel($channel_id);
-            if (empty($channel[$channel_id]['channel_link'])) {
-                $channel[$channel_id]['channel_official'] =
-                    Horde::url('delivery/html.php', true, -1)->add('channel_id', $channel_id)->setRaw(false);
-            } else {
-                $channel[$channel_id]['channel_official'] = str_replace(array('%25c', '%c'), array('%c', $channel_id), $channel[$channel_id]['channel_link']);
-            }
-
-        }
-
-        return $channel[$channel_id];
-    }
-
-    /**
      * Returns the most recent or all stories from a channel.
      *
      * @param integer $criteria    An associative array of attributes on which
@@ -193,7 +160,7 @@ class Jonah_Driver
      */
     public function getStory($channel_id, $story_id, $read = false)
     {
-        $channel = $this->getChannel($channel_id);
+        $channel = Jonah::getFeed($channel_id);
         $story = $this->_getStory($story_id, $read);
 
         /* Format story link. */
@@ -219,16 +186,15 @@ class Jonah_Driver
      */
     public function getStoryLink($channel, $story)
     {
+        $url = $channel->get('story_url');
         if (!empty($story['url']) && empty($story['body'])) {
             $url = $story['url'];
-        } elseif ((empty($story['url']) || !empty($story['body'])) &&
-            !empty($channel['channel_story_url'])) {
-            $url = $channel['channel_story_url'];
-        } else {
+        }
+        if (empty($url)) {
             $url = Horde::url('stories/view.php', true, -1)->add(array('channel_id' => '%c', 'id' => '%s'))->setRaw(false);
         }
         return new Horde_Url(str_replace(array('%25c', '%25s', '%c', '%s'),
-                                         array('%c', '%s', $channel['channel_id'], $story['id']),
+                                         array('%c', '%s', $channel->getName(), $story['id']),
                                          $url));
     }
 
@@ -278,7 +244,7 @@ class Jonah_Driver
      */
     public function renderChannel($channel_id, $tpl, $max = 10, $from = 0, $order = Jonah::ORDER_PUBLISHED)
     {
-        $channel = $this->getChannel($channel_id);
+        $channel = Jonah::getFeed($channel_id);
 
         $templates = Horde::loadConfiguration('templates.php', 'templates', 'jonah');
         $escape = !isset($templates[$tpl]['escape']) || !empty($templates[$tpl]['escape']);
