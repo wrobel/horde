@@ -1,2 +1,3 @@
+t/kolab/config/use-sql-shares
 t/jonah/kolab-storage-support
 t/kolab/include-jonah
