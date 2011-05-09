@@ -127,11 +127,72 @@ if ($form->validate($vars)) {
     }
 }
 
+$form_blog = new Horde_Form($vars, '', 'blog_story');
+$title = _("Blog Story");
+$form_blog->setTitle($title);
+$form_blog->setButtons(_("Post"));
+$form_blog->addHidden('', 'channel_id', 'text', false);
+$form_blog->addHidden('', 'id', 'int', false);
+$form_blog->addVariable(_("Url"), 'url', 'text', true);
+$form_blog->addVariable(_("Username"), 'user', 'text', true);
+$form_blog->addVariable(_("Password"), 'pass', 'text', true);
+
+//TODO: Fix
+$form_blog->useToken(false);
+
+if ($form_blog->validate($vars)) {
+    $form_blog->getInfo($vars, $info);
+
+    $httpClient = new Horde_Http_Client();
+    /* Authenticate. */
+    try {
+        $response = $httpClient->post(
+            'https://www.google.com/accounts/ClientLogin',
+            'accountType=GOOGLE&service=blogger&source=horde-feed-blogger-example-1&Email=' . $info['user'] . '&Passwd=' . $info['pass'],
+            array('Content-type', 'application/x-www-form-urlencoded')
+        );
+        if ($response->code !== 200) {
+            throw new Horde_Feed_Exception('Expected response code 200, got ' . $response->code);
+        }
+    } catch (Horde_Feed_Exception $e) {
+        die('An error occurred authenticating: ' . $e->getMessage() . "\n");
+    }
+    $auth = null;
+    foreach (explode("\n", $response->getBody()) as $line) {
+        $param = explode('=', $line);
+        if ($param[0] == 'Auth') {
+            $auth = $param[1];
+        }
+    }
+    if (empty($auth)) {
+        throw new Horde_Feed_Exception('Missing authentication token in the response!');
+    }
+
+    /* The base feed URI is the same as the POST URI, so just supply the
+     * Horde_Feed_Entry_Atom object with that. */
+    $entry = new Horde_Feed_Entry_Atom();
+
+    $channel = $GLOBALS['injector']->getInstance('Jonah_Driver')->getStory($info['channel_id'], $info['id']);
+
+    /* Give the entry its initial values. */
+    $entry->{'atom:title'} = $story['title'];
+    $entry->{'atom:title'}['type'] = 'text';
+    $entry->{'atom:content'} = $story['body'];
+    $entry->{'atom:content'}['type'] = 'text';
+
+    /* Do the initial post. */
+    try {
+        $entry->save($info['url'], array('Authorization' => 'GoogleLogin auth=' . $auth));
+    } catch (Horde_Feed_Exception $e) {
+        die('An error occurred posting: ' . $e->getMessage() . "\n");
+    }
+}
 $share_template = new Horde_Template();
 
 // Buffer the form and notifications and send to the template
 Horde::startBuffer();
 $form->renderActive(null, $vars, 'share.php', 'post');
+$form_blog->renderActive(null, $vars, 'share.php', 'post');
 $share_template->set('main', Horde::endBuffer());
 
 Horde::startBuffer();
