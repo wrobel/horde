@@ -530,6 +530,10 @@ class Horde_Xml_Element implements ArrayAccess
      */
     protected function _cacheChildren()
     {
+        if (is_null($this->_element->childNodes)) {
+            $this->_children = array();
+            return;
+        }
         foreach ($this->_element->childNodes as $child) {
             if (!isset($this->_children[$child->localName]))
                 $this->_children[$child->localName] = array();
