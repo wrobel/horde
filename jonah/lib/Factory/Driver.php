@@ -36,16 +36,23 @@ class Jonah_Factory_Driver extends Horde_Core_Factory_Base
         $params = Horde::getDriverConfig(array('news', 'storage'), $driver);
 
         $sig = md5($driver . serialize($params));
-        if (isset($this->_instances[$sig])) {
-            return $this->_instances[$sig];
-        }
+        if (!isset($this->_instances[$sig])) {
+            $class = 'Jonah_Driver_' . $driver;
+            if (!class_exists($class)) {
+                throw new Jonah_Exception(sprintf(_("No such backend \"%s\" found"), $driver));
+            }
 
-        $class = 'Jonah_Driver_' . $driver;
-        if (class_exists($class)) {
+            switch ($class) {
+            case 'Jonah_Driver_Sql':
+                $params['db'] = $this->_injector->getInstance('Horde_Core_Factory_Db')->create('jonah', 'storage');
+                break;
+
+            case 'Jonah_Driver_Kolab':
+                $params['storage'] = $this->_injector->getInstance('Horde_Kolab_Storage');
+                $params['db'] = $this->_injector->getInstance('Horde_Core_Factory_Db')->create('jonah', 'storage');
+            }
             $object = new $class($params);
             $this->_instances[$sig] = $object;
-        } else {
-            throw new Jonah_Exception(sprintf(_("No such backend \"%s\" found"), $driver));
         }
 
         return $this->_instances[$sig];
