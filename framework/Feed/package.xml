@@ -10,8 +10,8 @@
   <email>chuck@horde.org</email>
   <active>yes</active>
  </lead>
- <date>2011-04-06</date>
- <time>01:10:30</time>
+ <date>2011-05-07</date>
+ <time>06:26:15</time>
  <version>
   <release>1.0.1</release>
   <api>1.0.0</api>
@@ -29,6 +29,7 @@
    <dir name="examples">
     <dir name="Horde">
      <dir name="Feed">
+      <file name="blogger.php" role="doc" />
       <file name="blogroll.php" role="php" />
       <file name="delete.php" role="php" />
       <file name="edit.php" role="php" />
@@ -299,6 +300,7 @@
  </dependencies>
  <phprelease>
   <filelist>
+   <install as="examples/Horde/Feed/blogger.php" name="examples/Horde/Feed/blogger.php" />
    <install as="examples/Horde/Feed/blogroll.php" name="examples/Horde/Feed/blogroll.php" />
    <install as="examples/Horde/Feed/delete.php" name="examples/Horde/Feed/delete.php" />
    <install as="examples/Horde/Feed/edit.php" name="examples/Horde/Feed/edit.php" />
@@ -602,7 +604,7 @@
    <stability>
     <release>stable</release>
     <api>stable</api></stability>
-   <date>2011-04-06</date>
+   <date>2011-05-07</date>
    <license uri="http://opensource.org/licenses/bsd-license.php">BSD</license>
    <notes>
 * 
