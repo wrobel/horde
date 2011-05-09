@@ -18,8 +18,8 @@ Framework.</description>
   <email>jan@horde.org</email>
   <active>yes</active>
  </lead>
- <date>2011-04-14</date>
- <time>21:30:47</time>
+ <date>2011-05-08</date>
+ <time>15:59:51</time>
  <version>
   <release>1.0.0alpha1</release>
   <api>1.0.0alpha1</api>
@@ -67,6 +67,7 @@ Framework.</description>
      <file name="Story.php" role="horde" />
     </dir> <!-- /lib/Block -->
     <dir name="Driver">
+     <file name="Kolab.php" role="horde" />
      <file name="Sql.php" role="horde" />
     </dir> <!-- /lib/Driver -->
     <dir name="Factory">
@@ -313,6 +314,7 @@ Framework.</description>
    <install as="jonah/lib/Block/News.php" name="lib/Block/News.php" />
    <install as="jonah/lib/Block/NewsPopular.php" name="lib/Block/NewsPopular.php" />
    <install as="jonah/lib/Block/Story.php" name="lib/Block/Story.php" />
+   <install as="jonah/lib/Driver/Kolab.php" name="lib/Driver/Kolab.php" />
    <install as="jonah/lib/Driver/Sql.php" name="lib/Driver/Sql.php" />
    <install as="jonah/lib/Factory/Driver.php" name="lib/Factory/Driver.php" />
    <install as="jonah/lib/Form/Feed.php" name="lib/Form/Feed.php" />
@@ -404,7 +406,7 @@ Framework.</description>
     <release>alpha</release>
     <api>alpha</api>
    </stability>
-   <date>2011-04-14</date>
+   <date>2011-05-08</date>
    <license uri="http://opensource.org/licenses/bsd-license.php">BSD</license>
    <notes>
 * Initial release.

@@ -1,8 +1,9 @@
 <?php
 /**
- * Jonah storage implementation for Horde's database abstraction layer.
+ * Jonah storage implementation for the Kolab backend.
  *
- * The table structure can be created using Horde's db_migrate script.
+ * The driver requires some SQL storage as well though. The table structure can
+ * be created using Horde's db_migrate script.
  *
  * Copyright 2002-2010 The Horde Project (http://www.horde.org/)
  *
@@ -15,10 +16,18 @@
  * @author  Ben Klang <ben@alkaloid.net>
  * @author  Michael J. Rubinsky <mrubinsk@horde.org>
  * @author  Ian Roth <iron_hat@hotmail.com>
+ * @author  Gunnar Wrobel <wrobel@pardus.de>
  * @package Jonah
  */
-class Jonah_Driver_Sql extends Jonah_Driver
+class Jonah_Driver_Kolab extends Jonah_Driver
 {
+    /**
+     * The Kolab_Storage backend.
+     *
+     * @var Horde_Kolab_Storage
+     */
+    private $_kolab;
+
     /**
      * Handle for the current database connection.
      *
@@ -28,12 +37,29 @@ class Jonah_Driver_Sql extends Jonah_Driver
 
     public function __construct($params = array())
     {
-        if (empty($params['db'])) {
-            throw new InvalidArgumentException('Missing required db handler.');
+        if (empty($params['storage']) || empty($params['db'])) {
+            throw new InvalidArgumentException('Missing required storage/db handler.');
         }
+        $this->_kolab = $params['storage'];
+        unset($params['storage']);
         $this->_db = $params['db'];
         unset($params['db']);
         parent::__construct($params);
+    }
+
+    /**
+     * Return the Kolab data handler for the specified feed.
+     *
+     * @param string $feed The feed name.
+     *
+     * @return Horde_Kolab_Storage_Date The data handler.
+     */
+    private function _getDataForFeed($feed)
+    {
+        return $this->_kolab->getData(
+            $GLOBALS['jonah_shares']->getShare($feed)->get('folder'),
+            'note'
+        );
     }
 
     /**
@@ -142,29 +168,6 @@ class Jonah_Driver_Sql extends Jonah_Driver
     }
 
     /**
-     * Remove a channel from storage.
-     *
-     * @param integer $channel_id  The channel to remove.
-     *
-     * @return boolean.
-     * @throws Jonah_Exception
-     *
-     */
-    protected function _deleteChannel($channel_id)
-    {
-        $sql = 'DELETE FROM jonah_channels WHERE channel_id = ?';
-        $values = array($channel_id);
-
-        try {
-            $result = $this->_db->delete($sql, $values);
-        } catch (Horde_Db_Exception $e) {
-            throw new Jonah_Exception($e);
-        }
-
-        return $result;
-    }
-
-    /**
      * Save a story to storage.
      *
      * @param array &$info  The story info array.
@@ -173,25 +176,37 @@ class Jonah_Driver_Sql extends Jonah_Driver
      */
     protected function _saveStory(&$info)
     {
+        if (empty($info['id'])) {
+            $data = $this->_getDataForFeed($info['channel_id']);
+            $uid = $data->generateUid();
+            $data->create(
+                array(
+                    'uid' => $uid,
+                    'summary' => isset($info['title']) ? $info['title'] : null,
+                    'body' => isset($info['body']) ? $info['body'] : null,
+                    'categories' => isset($info['tags']) ? $info['tags'] : null,
+                    'link-attachment' => isset($info['url']) ? $info['url'] : null,
+                )
+            );
+        }
+
         if (empty($info['read'])) {
             $info['read'] = 0;
         }
 
         $values = array($info['channel_id'],
                         Horde_String::convertCharset($info['author'], 'UTF-8', $this->_params['charset']),
-                        Horde_String::convertCharset($info['title'], 'UTF-8', $this->_params['charset']),
+                        $uid,
                         Horde_String::convertCharset($info['description'], 'UTF-8', $this->_params['charset']),
                         $info['body_type'],
-                        isset($info['body']) ? Horde_String::convertCharset($info['body'], 'UTF-8', $this->_params['charset']) : null,
-                        isset($info['url']) ? $info['url'] : null,
                         isset($info['published']) ? (int)$info['published'] : null,
                         time(),
                         (int)$info['read']);
         if (empty($info['id'])) {
             $channel = Jonah::getFeed($info['channel_id']);
-            $permalink = $this->getStoryLink($channel,$info);
+            $permalink = $this->getStoryLink($channel, $info);
             $values[] = $permalink;
-            $sql = 'INSERT INTO jonah_stories (channel_id, story_author, story_title, story_desc, story_body_type, story_body, story_url, story_published, story_updated, story_read, story_permalink) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)';
+            $sql = 'INSERT INTO jonah_stories (channel_id, story_author, story_title, story_desc, story_body_type, story_published, story_updated, story_read, story_permalink) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)';
 
             try {
                 $info['id'] = $this->_db->insert($sql, $values);
@@ -231,26 +246,6 @@ class Jonah_Driver_Sql extends Jonah_Driver
         }
 
         return $story;
-    }
-
-    /**
-     * Look up a channel ID by its name
-     *
-     * @param string $channel
-     *
-     * @return int Channel ID
-     */
-    public function getChannelId($channel)
-    {
-        $sql = 'SELECT channel_id FROM jonah_channels WHERE channel_slug = ?';
-        $values = array($channel);
-        try {
-            $result = $this->_db->selectOne($sql, $values);
-        } catch (Horde_Db_Exception $e) {
-            throw new Jonah_Exception($e);
-        }
-
-        return $result;
     }
 
     /**
@@ -410,6 +405,12 @@ class Jonah_Driver_Sql extends Jonah_Driver
         }
         foreach ($results as &$row) {
             $row['tags'] = $this->readTags($row['id']);
+            $kolab = $this->_getKolabStory(
+                $criteria['channel_id'], $row['title']
+            );
+            $row['title'] = $kolab['title'];
+            $row['body'] = $kolab['body'];
+            $row['url'] = $kolab['url'];
         }
         return $results;
     }
@@ -464,12 +465,32 @@ class Jonah_Driver_Sql extends Jonah_Driver
         if (empty($result)) {
             throw new Horde_Exception_NotFound(sprintf(_("Story id \"%s\" not found."), $story_id));
         }
-        $result = $this->_convertFromBackend($result);
+
+        $kolab = $this->_getKolabStory(
+            $result['channel_id'], $result['title']
+        );
+        $result['title'] = $kolab['title'];
+        $result['body'] = $kolab['body'];
+        $result['url'] = $kolab['url'];
+
         if ($read) {
             $this->_readStory($story_id);
         }
 
         return $result;
+    }
+
+    private function _getKolabStory($channel, $guid)
+    {
+        $data = $this->_getDataForFeed($channel);
+        $object = $data->getObject($guid);
+        return array(
+            'title' => $object['summary'],
+            'body' => $object['body'],
+            'url' => $object['link-attachment'],
+            'tags' => $object['categories'],
+            'updated' => $object['last-modification-date']
+        );
     }
 
     /**
