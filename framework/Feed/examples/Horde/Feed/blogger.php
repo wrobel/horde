@@ -47,7 +47,7 @@ $entry->{'atom:title'} = 'Entry 1';
 $entry->{'atom:title'}['type'] = 'text';
 $entry->{'atom:content'} = '1.1';
 $entry->{'atom:content'}['type'] = 'text';
-var_dump($entry->saveXml());
+
 /* Do the initial post. */
 try {
     $entry->save($blogUri, array('Authorization' => 'GoogleLogin auth=' . $auth));
