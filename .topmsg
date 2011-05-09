@@ -1,6 +1,6 @@
 From: Gunnar Wrobel <p@rdus.de>
-Subject: [PATCH] t/jonah/kolab-storage-support
+Subject: [PATCH] t/jonah/Blog_Post
 
-Support jonah in the Kolab share driver.
+Support posting to blogger.com from jonah.
 
 Signed-off-by: Gunnar Wrobel <p@rdus.de>
