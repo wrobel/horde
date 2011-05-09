@@ -28,8 +28,12 @@ class Jonah_Driver_Sql extends Jonah_Driver
 
     public function __construct($params = array())
     {
+        if (empty($params['db'])) {
+            throw new InvalidArgumentException('Missing required db handler.');
+        }
+        $this->_db = $params['db'];
+        unset($params['db']);
         parent::__construct($params);
-        $this->initialize();
     }
 
     /**
@@ -529,15 +533,5 @@ class Jonah_Driver_Sql extends Jonah_Driver
         } catch (Horde_Db_Exception $e) {}
 
         return true;
-    }
-
-    /**
-     * Attempts to open a connection to the SQL server.
-     *
-     * @return boolean    True on success.
-     */
-    protected function initialize()
-    {
-        $this->_db = $GLOBALS['injector']->getInstance('Horde_Core_Factory_Db')->create('jonah', 'storage');
     }
 }
