@@ -148,6 +148,7 @@ class IMP_Views_ListMessages
             } elseif ($mbox == IMP_Mailbox::getPref('spam_folder')) {
                 $md->spam = 1;
             }
+
             if ($is_search) {
                 $md->search = 1;
             }
@@ -183,6 +184,14 @@ class IMP_Views_ListMessages
         /* These entries may change during a session, so always need to
          * update them. */
         $md->readonly = intval($mbox->readonly);
+        if (!$md->readonly) {
+            if (!$mbox->access_deletemsgs) {
+                $md->nodelete = 1;
+            }
+            if (!$mbox->access_expunge) {
+                $md->noexpunge = 1;
+            }
+        }
 
         /* Check for mailbox existence now. If there are no messages, there
          * is a chance that the mailbox doesn't exist. If there is at least
@@ -348,20 +357,12 @@ class IMP_Views_ListMessages
         /* Build the overview list. */
         $result->data = $this->_getOverviewData($mbox, array_keys($data));
 
-        /* Get unseen/thread information. */
-        if (!$is_search) {
-            try {
-                if ($info = $imp_imap->status($mbox, Horde_Imap_Client::STATUS_UNSEEN)) {
-                    $md->unseen = intval($info['unseen']);
-                }
-            } catch (IMP_Imap_Exception $e) {}
-
-            if ($sortpref['by'] == Horde_Imap_Client::SORT_THREAD) {
-                $imp_thread = new IMP_Imap_Thread($mailbox_list->getThreadOb());
-                $md->thread = (object)$imp_thread->getThreadTreeOb($msglist, $sortpref['dir']);
-            }
-        } else {
+        if ($is_search) {
             $result->search = 1;
+        } elseif ($sortpref['by'] == Horde_Imap_Client::SORT_THREAD) {
+            /* Get thread information. */
+            $imp_thread = new IMP_Imap_Thread($mailbox_list->getThreadOb());
+            $md->thread = (object)$imp_thread->getThreadTreeOb($msglist, $sortpref['dir']);
         }
 
         return $result;
