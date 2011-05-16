@@ -223,6 +223,33 @@ class IMP_Ajax_Application extends Horde_Core_Ajax_Application
     }
 
     /**
+     * AJAX action: Check access rights for a mailbox, and provide number of
+     * messages to be emptied.
+     *
+     * Variables used:
+     *   - mbox: (string) The name of the mailbox to check.
+     *
+     * @return integer  The number of messages to be deleted.
+     */
+    public function emptyMailboxPrepare()
+    {
+        $mbox = IMP_Mailbox::get($this->_vars->mbox);
+
+        if (!$mbox->access_deletemsgs || !$mbox->access_expunge) {
+            $GLOBALS['notification']->push(sprintf(_("The folder \"%s\" may not be emptied."), $mbox->display), 'horde.error');
+            return 0;
+        }
+
+        $poll_info = $mbox->poll_info;
+        if (empty($poll_info->msgs)) {
+            $GLOBALS['notification']->push(sprintf(_("The folder \"%s\" is already empty."), $mbox->display), 'horde.message');
+            return 0;
+        }
+
+        return $poll_info->msgs;
+    }
+
+    /**
      * AJAX action: Empty a mailbox.
      *
      * Variables used:
@@ -1944,7 +1971,7 @@ class IMP_Ajax_Application extends Horde_Core_Ajax_Application
 
         $mbox = IMP_Mailbox::get($this->_vars->view);
 
-        if ($mbox->hideDeletedMsgs(false, true)) {
+        if ($mbox->hideDeletedMsgs(true)) {
             $del->remove = 1;
         }
 
@@ -2122,26 +2149,32 @@ class IMP_Ajax_Application extends Horde_Core_Ajax_Application
      * @param IMP_Mailbox $elt  A mailbox object.
      *
      * @return stdClass  The element object. Contains the following items:
-     * <pre>
-     * 'ch' (children) = Does the mailbox contain children? [boolean]
-     *                   [DEFAULT: no]
-     * 'cl' (class) = The CSS class. [string] [DEFAULT: 'base']
-     * 'co' (container) = Is this mailbox a container element? [boolean]
-     *                    [DEFAULT: no]
-     * 'i' (icon) = A user defined icon to use. [string] [DEFAULT: none]
-     * 'l' (label) = The mailbox display label. [string] [DEFAULT: 'm' val]
-     * 'm' (mbox) = The mailbox value. [string]
-     * 'n' (non-imap) = A non-IMAP element? [boolean] [DEFAULT: no]
-     * 'pa' (parent) = The parent element. [string] [DEFAULT:
-     *                 DIMP.conf.base_mbox]
-     * 'po' (polled) = Is the element polled? [boolean] [DEFAULT: no]
-     * 's' (special) = Is this a "special" element? [boolean] [DEFAULT: no]
-     * 't' (title) = The title value. [string] [DEFAULT: 'm' val]
-     * 'un' (unsubscribed) = Is this mailbox unsubscribed? [boolean]
-     *                       [DEFAULT: no]
-     * 'v' (virtual) = Virtual folder? 0 = not vfolder, 1 = system vfolder,
-     *                 2 = user vfolder [integer] [DEFAULT: 0]
-     * </pre>
+     *   - ch: (boolean) [children] Does the mailbox contain children?
+     *         DEFAULT: no
+     *   - cl: (string) [class] The CSS class.
+     *         DEFAULT: 'base'
+     *   - co: (boolean) [container] Is this mailbox a container element?
+     *         DEFAULT: no
+     *   - i: (string) [icon] A user defined icon to use.
+     *        DEFAULT: none
+     *   - l: (string) [label] The mailbox display label.
+     *        DEFAULT: 'm' val
+     *   - m: (string) [mbox] The mailbox value.
+     *   - n: (boolean) [non-imap] A non-IMAP element?
+     *        DEFAULT: no
+     *   - pa: (string) [parent] The parent element.
+     *         DEFAULT: DIMP.conf.base_mbox
+     *   - po: (boolean) [polled] Is the element polled?
+     *         DEFAULT: no
+     *   - s: (boolean) [special] Is this a "special" element?
+     *        DEFAULT: no
+     *   - t: (string) [title] Mailbox title.
+     *        DEFAULT: 'm' val
+     *   - un: (boolean) [unsubscribed] Is this mailbox unsubscribed?
+     *         DEFAULT: no
+     *   - v: (integer) [virtual] Virtual folder? 0 = not vfolder, 1 = system
+     *        vfolder, 2 = user vfolder
+     *        DEFAULT: 0
      */
     protected function _createMailboxElt(IMP_Mailbox $elt)
     {
@@ -2166,7 +2199,7 @@ class IMP_Ajax_Application extends Horde_Core_Ajax_Application
             $ob->pa = $elt->parent;
         }
         if ($elt->vfolder) {
-            $ob->v = $GLOBALS['injector']->getInstance('IMP_Search')->isVFolder($elt->value, true) ? 2 : 1;
+            $ob->v = $elt->editvfolder ? 2 : 1;
         }
         if (!$elt->sub) {
             $ob->un = 1;
@@ -2186,7 +2219,7 @@ class IMP_Ajax_Application extends Horde_Core_Ajax_Application
 
             if ($elt->special) {
                 $ob->s = 1;
-            } elseif (!$elt->vfolder && $elt->children) {
+            } elseif (empty($ob->v) && $elt->children) {
                 $ob->cl = 'exp';
             }
         }

@@ -93,7 +93,7 @@ case 'rebuild_tree':
 
 case 'expunge_folder':
     if (!empty($folder_list)) {
-        $injector->getInstance('IMP_Message')->expungeMailbox($folder_list->indices());
+        $injector->getInstance('IMP_Message')->expungeMailbox(array_fill_keys($folder_list, null));
     }
     break;
 
@@ -209,7 +209,7 @@ case 'folders_empty_mailbox':
 case 'mark_folder_seen':
 case 'mark_folder_unseen':
     if (!empty($folder_list)) {
-        $injector->getInstance('IMP_Message')->flagAllInMailbox(array('seen'), $folder_list, ($vars->actionID == 'mark_folder_seen'));
+        $injector->getInstance('IMP_Message')->flagAllInMailbox(array('\\seen'), $folder_list, ($vars->actionID == 'mark_folder_seen'));
     }
     break;
 
@@ -219,9 +219,20 @@ case 'folders_empty_mailbox_confirm':
         $loop = array();
         $rowct = 0;
         foreach ($folder_list as $val) {
-            if (($vars->actionID == 'delete_folder_confirm') && $val->fixed) {
-                $notification->push(sprintf(_("The folder \"%s\" may not be deleted."), $val->display), 'horde.error');
-                continue;
+            switch ($vars->actionID) {
+            case 'delete_folder_confirm':
+                if ($val->fixed) {
+                    $notification->push(sprintf(_("The folder \"%s\" may not be deleted."), $val->display), 'horde.error');
+                    continue 2;
+                }
+                break;
+
+            case 'folders_empty_mailbox_confirm':
+                if (!$val->access_deletemsgs || !$val->access_expunge) {
+                    $notification->push(sprintf(_("The folder \"%s\" may not be emptied."), $val->display), 'horde.error');
+                    continue 2;
+                }
+                break;
             }
 
             try {
