@@ -177,7 +177,7 @@ class IMP_Message
 
         foreach ($indices as $ob) {
             try {
-                if ($ob->mbox->readonly) {
+                if (!$ob->mbox->access_deletemsgs) {
                     throw new IMP_Exception(_("This folder is read-only."));
                 }
 
@@ -195,19 +195,21 @@ class IMP_Message
 
             /* Trash is only valid for IMAP mailboxes. */
             if ($use_trash_folder && ($ob->mbox != $trash)) {
-                try {
-                    $imp_imap->copy($ob->mbox, $trash, array(
-                        'ids' => new Horde_Imap_Client_Ids($ob->uids),
-                        'move' => true
-                    ));
+                if ($ob->mbox->access_expunge) {
+                    try {
+                        $imp_imap->copy($ob->mbox, $trash, array(
+                            'ids' => new Horde_Imap_Client_Ids($ob->uids),
+                            'move' => true
+                        ));
 
-                    if (!empty($options['mailboxob']) &&
-                        $options['mailboxob']->isBuilt()) {
-                        $options['mailboxob']->removeMsgs($imp_indices);
+                        if (!empty($options['mailboxob']) &&
+                            $options['mailboxob']->isBuilt()) {
+                            $options['mailboxob']->removeMsgs($imp_indices);
+                        }
+                    } catch (IMP_Imap_Exception $e) {
+                        // @todo Check for overquota error.
+                        return false;
                     }
-                } catch (IMP_Imap_Exception $e) {
-                    // @todo Check for overquota error.
-                    return false;
                 }
             } else {
                 /* Get the list of Message-IDs for the deleted messages if
@@ -687,7 +689,7 @@ class IMP_Message
         foreach ($mbox_list as $key => $val) {
             $key = IMP_Mailbox::get($key);
 
-            if (!$key->readonly) {
+            if ($key->access_expunge) {
                 $ids = new Horde_Imap_Client_Ids(is_array($val) ? $val : Horde_Imap_Client_Ids::ALL);
 
                 if ($key->search) {
@@ -745,7 +747,7 @@ class IMP_Message
             : null;
 
         foreach (IMP_Mailbox::get($mbox_list) as $mbox) {
-            if ($mbox->readonly) {
+            if (!$mbox->access_deletemsgs || !$mbox->access_expunge) {
                 $notification->push(sprintf(_("Could not delete messages from %s. This mailbox is read-only."), $mbox->display), 'horde.error');
                 continue;
             }

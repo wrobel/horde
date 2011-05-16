@@ -136,15 +136,11 @@ case 'fwd_digest':
     break;
 
 case 'delete_messages':
-    if (!$readonly) {
-        $injector->getInstance('IMP_Message')->delete($indices);
-    }
+    $injector->getInstance('IMP_Message')->delete($indices);
     break;
 
 case 'undelete_messages':
-    if (!$readonly) {
-        $injector->getInstance('IMP_Message')->undelete($indices);
-    }
+    $injector->getInstance('IMP_Message')->undelete($indices);
     break;
 
 case 'move_messages':
@@ -208,13 +204,12 @@ case 'filter_messages':
 
 case 'hide_deleted':
     $prefs->setValue('delhide', !$prefs->getValue('delhide'));
-    IMP::$mailbox->hideDeletedMsgs(true);
+    IMP::$mailbox->expire(IMP_Mailbox::CACHE_HIDEDELETED);
+    $injector->getInstance('IMP_Factory_MailboxList')->expireAll();
     break;
 
 case 'expunge_mailbox':
-    if (!$readonly) {
-        $injector->getInstance('IMP_Message')->expungeMailbox(array(strval(IMP::$mailbox) => 1));
-    }
+    $injector->getInstance('IMP_Message')->expungeMailbox(array(strval(IMP::$mailbox) => 1));
     break;
 
 case 'filter':
@@ -222,9 +217,7 @@ case 'filter':
     break;
 
 case 'empty_mailbox':
-    if (!$readonly) {
-        $injector->getInstance('IMP_Message')->emptyMailbox(array(strval(IMP::$mailbox)));
-    }
+    $injector->getInstance('IMP_Message')->emptyMailbox(array(strval(IMP::$mailbox)));
     break;
 
 case 'view_messages':
@@ -279,9 +272,15 @@ $sortpref = IMP::$mailbox->getSort();
 
 /* Determine if we are going to show the Hide/Purge Deleted Message links. */
 if (!$prefs->getValue('use_trash') && !IMP::$mailbox->vinbox) {
-    $showdelete = array('hide' => ($sortpref['by'] != Horde_Imap_Client::SORT_THREAD), 'purge' => true);
+    $showdelete = array(
+        'hide' => ($sortpref['by'] != Horde_Imap_Client::SORT_THREAD),
+        'purge' => IMP::$mailbox->access_expunge
+    );
 } else {
-    $showdelete = array('hide' => false, 'purge' => false);
+    $showdelete = array(
+        'hide' => false,
+        'purge' => false
+    );
 }
 if ($showdelete['hide'] && !$prefs->isLocked('delhide')) {
     if ($prefs->getValue('delhide')) {
@@ -289,9 +288,6 @@ if ($showdelete['hide'] && !$prefs->isLocked('delhide')) {
     } else {
         $deleted_prompt = _("Hide Deleted");
     }
-}
-if ($readonly) {
-    $showdelete['purge'] = false;
 }
 
 /* Generate paging links. */
@@ -418,14 +414,6 @@ if ($imp_imap->access(IMP_Imap::ACCESS_SEARCH)) {
 
     if (!$search_mbox) {
         $hdr_template->set('search_url', Horde::url('search-basic.php')->add('search_mailbox', IMP::$mailbox));
-        if (!$readonly) {
-            $hdr_template->set('empty', $mailbox_imp_url->copy()->add(array(
-                'actionID' => 'empty_mailbox',
-                'mailbox' => IMP::$mailbox,
-                'mailbox_token' => $mailbox_token
-            )));
-            $hdr_template->set('empty_img', Horde::img('empty_spam.png', _("Empty folder")));
-        }
     } else {
         if (IMP::$mailbox->editvfolder) {
             $edit_search = _("Edit Virtual Folder");
@@ -448,6 +436,15 @@ if ($imp_imap->access(IMP_Imap::ACCESS_SEARCH)) {
     }
 }
 
+if (IMP::$mailbox->access_deletemsgs && IMP::$mailbox->access_expunge) {
+    $hdr_template->set('empty', $mailbox_imp_url->copy()->add(array(
+        'actionID' => 'empty_mailbox',
+        'mailbox' => IMP::$mailbox,
+        'mailbox_token' => $mailbox_token
+    )));
+    $hdr_template->set('empty_img', Horde::img('empty_spam.png', _("Empty folder")));
+}
+
 /* Generate mailbox summary string. */
 if (empty($pageOb['end'])) {
     $hdr_template->set('msgcount', _("No Messages"));
@@ -467,7 +464,7 @@ if (empty($pageOb['end'])) {
            has hidden, deleted messages. */
         $del_template = $injector->createInstance('Horde_Template');
         $del_template->set('hide', Horde::widget($refresh_url->copy()->add(array('actionID' => 'hide_deleted', 'mailbox_token' => $mailbox_token)), $deleted_prompt, 'widget hideAction', '', '', $deleted_prompt));
-        if (!$readonly) {
+        if (IMP::$mailbox->access_expunge) {
             $del_template->set('purge', Horde::widget($refresh_url->copy()->add(array('actionID' => 'expunge_mailbox', 'mailbox_token' => $mailbox_token)), _("Purge Deleted"), 'widget purgeAction', '', '', _("Pur_ge Deleted")));
         }
         echo $del_template->fetch(IMP_TEMPLATES . '/imp/mailbox/actions_deleted.html');
@@ -560,7 +557,7 @@ if ($pageOb['msgcount']) {
 
     /* Prepare the actions template. */
     $a_template = $injector->createInstance('Horde_Template');
-    if (!$readonly) {
+    if (IMP::$mailbox->access_deletemsgs) {
         $del_class = ($use_trash && IMP::$mailbox->is_trash)
             ? 'permdeleteAction'
             : 'deleteAction';
