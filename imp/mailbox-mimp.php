@@ -49,10 +49,6 @@ switch ($vars->checkbox) {
 // 'u' = undelete message
 case 'd':
 case 'u':
-    if ($readonly) {
-        break;
-    }
-
     $imp_message = $injector->getInstance('IMP_Message');
 
     if ($vars->checkbox == 'd') {
@@ -84,9 +80,7 @@ case 'm':
 
 // 'e' = expunge mailbox
 case 'e':
-    if (!$readonly) {
-        $injector->getInstance('IMP_Message')->expungeMailbox(array(strval(IMP::$mailbox) => 1));
-    }
+    $injector->getInstance('IMP_Message')->expungeMailbox(array(strval(IMP::$mailbox) => 1));
     break;
 
 // 'c' = change sort
@@ -215,9 +209,9 @@ $menu = array(array(_("Refresh"), $mailbox));
 $search_mbox = $imp_search->isSearchMbox(IMP::$mailbox);
 
 /* Determine if we are going to show the Purge Deleted link. */
-if (!$readonly &&
-    !$prefs->getValue('use_trash') &&
-    !$imp_search->isVinbox(IMP::$mailbox)) {
+if (!$prefs->getValue('use_trash') &&
+    !$imp_search->isVinbox(IMP::$mailbox) &&
+    IMP::$mailbox->access_expunge) {
     $menu[] = array(_("Purge Deleted"), $mailbox->copy()->add('a', 'e'));
 }
 
@@ -273,6 +267,7 @@ $t->set('menu', $imp_ui_mimp->getMenu('mailbox', $menu));
 try {
     if (Horde::callHook('mimp_advanced', array('checkbox'), 'imp')) {
         $t->set('checkbox', $mailbox_url->copy()->add('p', $pageOb['page']));
+        $t->set('delete', IMP::$mailbox->access_deletemsgs);
         $t->set('forminput', Horde_Util::formInput());
         $t->set('mt', $injector->getInstance('Horde_Token')->get('imp.message-mimp'));
     }
