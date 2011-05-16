@@ -408,7 +408,7 @@ class IMP_Mailbox_List implements Countable, Serializable
 
         $ret = array('msgcount' => count($this->_sorted));
 
-        $page_size = $GLOBALS['prefs']->getValue('max_msgs');
+        $page_size = max($GLOBALS['prefs']->getValue('max_msgs'), 1);
 
         if ($ret['msgcount'] > $page_size) {
             $ret['pagecount'] = ceil($ret['msgcount'] / $page_size);
@@ -550,17 +550,12 @@ class IMP_Mailbox_List implements Countable, Serializable
     }
 
     /**
-     * Determines if a rebuild is needed, and, if necessary, performs
-     * the rebuild.
-     *
-     * @param boolean $force  Force a rebuild?
+     * Rebuilds the mailbox.
      */
-    protected function _rebuild($force = false)
+    public function rebuild()
     {
-        if ($force) {
-            $this->_sorted = null;
-            $this->_buildMailbox();
-        }
+        $this->_sorted = null;
+        $this->_buildMailbox();
     }
 
     /**
@@ -656,7 +651,7 @@ class IMP_Mailbox_List implements Countable, Serializable
     public function removeMsgs($indices)
     {
         if ($indices === true) {
-            $this->_rebuild(true);
+            $this->rebuild();
             return false;
         }
 
