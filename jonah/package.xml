@@ -230,7 +230,6 @@ Framework.</description>
    <file name="dispatcher.php" role="horde" />
    <file name="feed.php" role="horde" />
    <file name="index.php" role="horde" />
-   <file name="jonah-1.0.0dev201104132322.tgz" role="horde" />
    <file name="LICENSE" role="data" />
    <file name="README" role="data" />
   </dir> <!-- / -->
@@ -281,7 +280,6 @@ Framework.</description>
    <install as="jonah/dispatcher.php" name="dispatcher.php" />
    <install as="jonah/feed.php" name="feed.php" />
    <install as="jonah/index.php" name="index.php" />
-   <install as="jonah/jonah-1.0.0dev201104132322.tgz" name="jonah-1.0.0dev201104132322.tgz" />
    <install as="LICENSE" name="LICENSE" />
    <install as="README" name="README" />
    <install as="jonah/channels/delete.php" name="channels/delete.php" />
