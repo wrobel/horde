@@ -384,7 +384,7 @@ class IMP_Imap implements Serializable
                 break;
 
             // BC: Not available in Horde_Imap_Client 1.0.0
-            case constant('Horde_Imap_Client_Exception::QUOTA'):
+            case constant('Horde_Imap_Client_Exception::OVERQUOTA'):
                 $error->notify(_("The operation failed because you have exceeded your quota on the mail server."));
                 break;
 
@@ -409,7 +409,11 @@ class IMP_Imap implements Serializable
         case 'createMailbox':
         case 'renameMailbox':
             // Mailbox is first parameter.
-            $GLOBALS['injector']->getInstance('IMP_Factory_Mailbox')->expire($params[0]);
+            IMP_Mailbox::get($params[0])->expire();
+            break;
+
+        case 'setACL':
+            IMP_Mailbox::get($params[0])->expire(IMP_Mailbox::CACHE_ACL);
             break;
 
         case 'login':

@@ -624,7 +624,7 @@ var DimpBase = {
                 [ $('search_edit') ].invoke(this.search || this.viewport.getMetaData('noedit') ? 'hide' : 'show');
                 $('searchbar').show();
             } else {
-                this.setFolderLabel(this.folder, this.viewport.getMetaData('unseen') || 0);
+                this.setFolderLabel(this.folder);
             }
 
             if (this.rownum) {
@@ -674,15 +674,18 @@ var DimpBase = {
                 }
 
                 /* Read-only changes. 'oa_setflag' is handled elsewhere. */
-                tmp = [ $('button_deleted') ].compact().invoke('up').concat($('ctx_message_deleted', 'ctx_message_setflag', 'ctx_message_undeleted'));
-
+                tmp = [ $('ctx_message_setflag') ].compact();
                 if (this.viewport.getMetaData('readonly')) {
-                    tmp.compact().invoke('hide');
+                    tmp.invoke('hide');
                     $('folderName').next().show();
                 } else {
-                    tmp.compact().invoke('show');
+                    tmp.invoke('show');
                     $('folderName').next().hide();
                 }
+
+                /* ACL changes. */
+                [ $('button_deleted') ].compact().invoke('up').concat($('ctx_message_deleted', 'ctx_message_undeleted')).compact().invoke(this.viewport.getMetaData('nodelete') ? 'hide' : 'show');
+                [ $('oa_purge_deleted') ].compact().invoke(this.viewport.getMetaData('noexpunge') ? 'hide' : 'show');
             } else if (this.filtertoggle &&
                        this.viewport.getMetaData('sortby') == $H(DIMP.conf.sort).get('thread').v) {
                 ssc = $H(DIMP.conf.sort).get('date').v;
@@ -792,14 +795,11 @@ var DimpBase = {
 
         case 'ctx_folder_empty':
             tmp = e.findElement('LI');
-
-            this.folderaction = DimpCore.doAction.bind(DimpCore, 'emptyMailbox', { mbox: tmp.retrieve('mbox') }, { callback: this._emptyMailboxCallback.bind(this) });
-
-            IMPDialog.display({
-                cancel_text: DIMP.text.cancel,
-                noinput: true,
-                ok_text: DIMP.text.ok,
-                text: DIMP.text.empty_folder.sub('%s', tmp.readAttribute('title'))
+            DimpCore.doAction('emptyMailboxPrepare', {
+                access: 'empty',
+                mbox: tmp.retrieve('mbox')
+            },{
+                callback: this._emptyMailboxPromptCallback.bind(this, tmp.retrieve('mbox'), tmp.readAttribute('title'))
             });
             break;
 
@@ -1129,6 +1129,7 @@ var DimpBase = {
                 $('oa_preview_show').show();
                 break;
             }
+
             tmp = [ $('oa_undeleted') ];
             $('oa_blacklist', 'oa_whitelist').each(function(o) {
                 if (o) {
@@ -1148,6 +1149,10 @@ var DimpBase = {
             }
 
             tmp.compact().invoke(sel.size() ? 'show' : 'hide');
+
+            if (tmp = $('oa_purge_options')) {
+                [ tmp ].invoke(tmp.select('> a').any(Element.visible) ? 'show' : 'hide');
+            }
             break;
 
         case 'ctx_sortopts':
@@ -1624,10 +1629,6 @@ var DimpBase = {
 
     updateUnseenStatus: function(mbox, unseen)
     {
-        if (this.viewport) {
-            this.viewport.setMetaData({ unseen: unseen }, mbox);
-        }
-
         this.setFolderLabel(mbox, unseen);
 
         if (this.folder == mbox) {
@@ -2582,6 +2583,20 @@ var DimpBase = {
         if (r.remove && search.size()) {
             this.viewport.remove(search, { noupdate: r.ViewPort });
             this._expirePPCache(uids);
+        }
+    },
+
+    _emptyMailboxPromptCallback: function(mbox, title, r)
+    {
+        if (r.response) {
+            this.folderaction = DimpCore.doAction.bind(DimpCore, 'emptyMailbox', { mbox: mbox }, { callback: this._emptyMailboxCallback.bind(this) });
+
+            IMPDialog.display({
+                cancel_text: DIMP.text.cancel,
+                noinput: true,
+                ok_text: DIMP.text.ok,
+                text: DIMP.text.empty_folder.sub('%s', title).sub('%d', r.response)
+            });
         }
     },
 
