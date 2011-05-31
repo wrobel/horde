@@ -213,7 +213,7 @@ case 'mailto_link':
 
 case 'draft':
     try {
-        $result = $imp_compose->resumeDraft(new IMP_Indices(IMP::$thismailbox, IMP::$uid));
+        $result = $imp_compose->resumeDraft(IMP::$thismailbox->getIndicesOb(IMP::$uid));
 
         if (!is_null($rtemode)) {
             $rtemode = ($result['mode'] == 'html');
@@ -729,7 +729,7 @@ if ($redirect) {
         'compose_formToken' => Horde_Token::generateId('compose'),
         'compose_requestToken' => $injector->getInstance('Horde_Token')->get('imp.compose'),
         'composeCache' => $composeCacheID,
-        'mailbox' => htmlspecialchars(IMP::$mailbox),
+        'mailbox' => IMP::$thismailbox->form_to,
         'oldrtemode' => $rtemode,
         'rtemode' => $rtemode,
         'user' => $registry->getAuth()
