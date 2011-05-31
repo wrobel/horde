@@ -40,7 +40,9 @@ class Ansel_GalleryMode_Normal extends Ansel_GalleryMode_Base
             $storage = $GLOBALS['injector']->getInstance('Ansel_Storage');
             /* Get the number of images and galleries */
             $numimages = $this->countImages();
-            $num_galleries = $storage->countGalleries($GLOBALS['registry']->getAuth(), Horde_Perms::SHOW, null, $this->_gallery, false);
+            $num_galleries = $storage->countGalleries(
+                $GLOBALS['registry']->getAuth(),
+                array('parent' => $this->_gallery, 'all_levels' => false));
 
             /* Now fetch the subgalleries, but only if we need to */
             if ($num_galleries > $from) {
@@ -110,9 +112,11 @@ class Ansel_GalleryMode_Normal extends Ansel_GalleryMode_Base
         }
 
         $gCnt = $GLOBALS['injector']->getInstance('Ansel_Storage')
-                ->countGalleries($GLOBALS['registry']->getAuth(),
-                                 $perm, null,
-                                 $this->_gallery, false);
+                ->countGalleries(
+                    $GLOBALS['registry']->getAuth(),
+                    array('perm' => $perm,
+                          'parent' => $this->_gallery,
+                          'all_levels' => false));
 
         if (!$galleries_only) {
             $iCnt = $this->countImages(false);
@@ -129,7 +133,7 @@ class Ansel_GalleryMode_Normal extends Ansel_GalleryMode_Base
      * @param integer $from  The image to start listing.
      * @param integer $count The numer of images to list.
      *
-     * @return mixed  An array of image_ids | PEAR_Error
+     * @return array  An array of image_ids
      */
     public function listImages($from = 0, $count = 0)
     {
@@ -238,11 +242,10 @@ class Ansel_GalleryMode_Normal extends Ansel_GalleryMode_Base
         if (($GLOBALS['conf']['comments']['allow'] == 'all' || ($GLOBALS['conf']['comments']['allow'] == 'authenticated' && $GLOBALS['registry']->getAuth())) &&
             $GLOBALS['registry']->hasMethod('forums/deleteForum')) {
 
-            $result = $GLOBALS['registry']->call('forums/deleteForum',
-                                                 array('ansel', $image->id));
-
-            if ($result instanceof PEAR_Error) {
-                Horde::logMessage($result, 'ERR');
+            try {
+                $result = $GLOBALS['registry']->forums->deleteForum('ansel', $image->id);
+            } catch (Horde_Exception $e) {
+                Horde::logMessage($e, 'ERR');
                 return false;
             }
         }
