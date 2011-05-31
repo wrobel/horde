@@ -10,10 +10,10 @@
   <email>slusarz@horde.org</email>
   <active>yes</active>
  </lead>
- <date>2011-05-11</date>
- <time>00:17:40</time>
+ <date>2011-05-25</date>
+ <time>14:53:31</time>
  <version>
-  <release>1.0.6</release>
+  <release>1.0.7</release>
   <api>1.0.0</api>
  </version>
  <stability>
@@ -22,9 +22,9 @@
  </stability>
  <license uri="http://www.gnu.org/copyleft/lesser.html">LGPL</license>
  <notes>
-* [mms] More than one SEARCH response may be sent, so don't overwrite existing values.
-* [mms] Disable search caching if a mailbox reports it does not support mod sequences (Bug #9833).
-* [mms] Fix storing IMAP flag cache info if specifying both add and remove options to store().
+* [mms] Support response code for POP3 servers (RFC 2449/3206).
+* [mms] Enable cache support for POP3 Socket driver (FETCH data only).
+* [mms] Fix APOP authentication for POP3 Socket driver.
  </notes>
  <contents>
   <dir baseinstalldir="/" name="/">
@@ -40,6 +40,7 @@
          <file name="Pop3.php" role="php" />
         </dir> <!-- /lib/Horde/Imap/Client/Data/Fetch -->
         <file name="Acl.php" role="php" />
+        <file name="AclCommon.php" role="php" />
         <file name="AclNegative.php" role="php" />
         <file name="AclRights.php" role="php" />
         <file name="Envelope.php" role="php" />
@@ -79,6 +80,7 @@
         <file name="test_email.txt" role="test" />
         <file name="test_email2.txt" role="test" />
        </dir> <!-- /test/Horde/Imap/Client/fixtures -->
+       <file name="AclTest.php" role="test" />
        <file name="AllTests.php" role="test" />
        <file name="Autoload.php" role="test" />
        <file name="DateTimeTest.php" role="test" />
@@ -179,6 +181,7 @@
    <install as="Horde/Imap/Client/Utils.php" name="lib/Horde/Imap/Client/Utils.php" />
    <install as="Horde/Imap/Client/Cclient/Pop3.php" name="lib/Horde/Imap/Client/Cclient/Pop3.php" />
    <install as="Horde/Imap/Client/Data/Acl.php" name="lib/Horde/Imap/Client/Data/Acl.php" />
+   <install as="Horde/Imap/Client/Data/AclCommon.php" name="lib/Horde/Imap/Client/Data/AclCommon.php" />
    <install as="Horde/Imap/Client/Data/AclNegative.php" name="lib/Horde/Imap/Client/Data/AclNegative.php" />
    <install as="Horde/Imap/Client/Data/AclRights.php" name="lib/Horde/Imap/Client/Data/AclRights.php" />
    <install as="Horde/Imap/Client/Data/Envelope.php" name="lib/Horde/Imap/Client/Data/Envelope.php" />
@@ -188,6 +191,7 @@
    <install as="Horde/Imap/Client/Fetch/Query.php" name="lib/Horde/Imap/Client/Fetch/Query.php" />
    <install as="Horde/Imap/Client/Search/Query.php" name="lib/Horde/Imap/Client/Search/Query.php" />
    <install as="Horde/Imap/Client/Socket/Pop3.php" name="lib/Horde/Imap/Client/Socket/Pop3.php" />
+   <install as="Horde/Imap/Client/AclTest.php" name="test/Horde/Imap/Client/AclTest.php" />
    <install as="Horde/Imap/Client/AllTests.php" name="test/Horde/Imap/Client/AllTests.php" />
    <install as="Horde/Imap/Client/Autoload.php" name="test/Horde/Imap/Client/Autoload.php" />
    <install as="Horde/Imap/Client/DateTimeTest.php" name="test/Horde/Imap/Client/DateTimeTest.php" />
@@ -389,10 +393,31 @@
    <stability>
     <release>stable</release>
     <api>stable</api></stability>
-   <date>2011-05-11</date>
+   <date>2011-05-25</date>
    <license uri="http://www.gnu.org/copyleft/lesser.html">LGPL</license>
    <notes>
-* 
+* [mms] Fix changedsince FETCH results when no cacheable fields were present in query.
+* [mms] Fix/optimize updating Sequence -&gt; UID list when processing EXPUNGEs (Bug #10097).
+* [mms] Fix UTF-8 -&gt; UTF7-IMAP encoding of ampersands (Bug #10093).
+* [mms] Fix setACL() for Socket driver (was always doing replace instead of add/remove).
+* [mms] Fix ACL parsing on RFC 2086 server implementations (Bug #10079).
+* [mms] More than one SEARCH response may be sent, so don&apos;t overwrite existing values.
+* [mms] Disable search caching if a mailbox reports it does not support mod sequences (Bug #9833).
+* [mms] Fix storing IMAP flag cache info if specifying both add and remove options to store().
+   </notes>
+  </release>
+  <release>
+   <version>
+    <release>1.0.7</release>
+    <api>1.0.0</api></version>
+   <stability>
+    <release>stable</release>
+    <api>stable</api></stability>
+   <date>2011-05-25</date>
+   <license uri="http://www.gnu.org/copyleft/lesser.html">LGPL</license>
+   <notes>
+* Enable cache support for POP3 Socket driver (FETCH data only).
+* Fix APOP authentication for POP3 Socket driver.
    </notes>
   </release>
  </changelog>

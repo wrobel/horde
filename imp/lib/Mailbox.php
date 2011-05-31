@@ -15,6 +15,8 @@
  *
  * @property string $abbrev_label  Abbreviated version of $label - displays
  *                                 only the bare mailbox name (no parents).
+ * @property boolean $access_creatembox  Can sub mailboxes be created?
+ * @property boolean $access_deletembox  Can this mailbox be deleted?
  * @property boolean $access_deletemsgs  Can messages be deleted in this
  *                                       mailbox?
  * @property boolean $access_expunge  Can messages be expunged in this
@@ -56,7 +58,8 @@
  * @property string $namespace_delimiter  The delimiter for this namespace.
  * @property array $namespace_info  See IMP_Imap::getNamespace().
  * @property boolean $nonimap  Is this a non-IMAP element?
- * @property array $parent  The parent element value.
+ * @property IMP_Mailbox $parent  The parent element. Returns null if no
+ *                                parent.
  * @property IMP_Imap_PermanentFlags $permflags  Return the list of permanent
  *                                               flags available to set in the
  *                                               mailbox.
@@ -107,6 +110,8 @@ class IMP_Mailbox implements Serializable
     const CACHE_DISPLAY = 'd';
     // (array) Icons array
     const CACHE_ICONS = 'i';
+    // (array) Namespace information
+    const CACHE_NAMESPACE = 'n';
     // (boolean) Read-only?
     const CACHE_READONLY = 'ro';
     // (integer) UIDVALIDITY
@@ -221,6 +226,14 @@ class IMP_Mailbox implements Serializable
             return (($pos = strrpos($label, $this->namespace_delimiter)) === false)
                 ? $label
                 : substr($label, $pos + 1);
+
+        case 'access_creatembox':
+            return (!($acl = $this->acl) ||
+                    ($acl[Horde_Imap_Client::ACL_CREATEMBOX]));
+
+        case 'access_deletembox':
+            return (!($acl = $this->acl) ||
+                    ($acl[Horde_Imap_Client::ACL_DELETEMBOX]));
 
         case 'access_deletemsgs':
             return (!$this->readonly &&
@@ -397,20 +410,33 @@ class IMP_Mailbox implements Serializable
         case 'namespace_info':
             $keys = array('delimiter', 'hidden', 'name', 'translation', 'type');
 
-            if (isset($this->cache['n'])) {
-                return is_null($this->cache['n'])
-                    ? null
-                    : array_combine($keys, $this->cache['n']);
+            if (isset($this->cache[self::CACHE_NAMESPACE])) {
+                $ns = $this->cache[self::CACHE_NAMESPACE];
+
+                if (is_null($ns)) {
+                    return null;
+                }
+
+                $ret = array();
+                foreach ($keys as $key => $val) {
+                    $ret[$val] = isset($ns[$key])
+                        ? $ns[$key]
+                        : '';
+                }
+
+                return $ret;
             }
 
             $ns_info = $injector->getInstance('IMP_Factory_Imap')->create()->getNamespace($this->_mbox);
             if (is_null($ns_info)) {
-                $this->cache['n'] = null;
+                $this->cache[self::CACHE_NAMESPACE] = null;
             } else {
                 /* Store data compressed in the cache array. */
-                $this->cache['n'] = array();
-                foreach ($keys as $key) {
-                    $this->cache['n'][] = $ns_info[$key];
+                $this->cache[self::CACHE_NAMESPACE] = array();
+                foreach ($keys as $id => $key) {
+                    if ($ns_info[$key]) {
+                        $this->cache[self::CACHE_NAMESPACE][$id] = $ns_info[$key];
+                    }
                 }
             }
 
@@ -424,8 +450,8 @@ class IMP_Mailbox implements Serializable
         case 'parent':
             $elt = $injector->getInstance('IMP_Imap_Tree')->getElement($this->_mbox);
             return $elt
-                ? $elt['p']
-                : '';
+                ? self::get($elt['p'])
+                : null;
 
         case 'permflags':
             $imp_imap = $injector->getInstance('IMP_Factory_Imap')->create();
@@ -590,7 +616,38 @@ class IMP_Mailbox implements Serializable
     }
 
     /**
-     * TODO
+     * Runs filters on this mailbox.
+     */
+    public function filter()
+    {
+        if (!$this->search) {
+            $GLOBALS['injector']->getInstance('IMP_Filter')->filter($this);
+        }
+    }
+
+    /**
+     * Filters this mailbox if it is the INBOX and the filter on display pref
+     * is active.
+     *
+     * @return boolean  True if filter() was called.
+     */
+    public function filterOnDisplay()
+    {
+        if ($this->inbox &&
+            $GLOBALS['prefs']->getValue('filter_on_display')) {
+            $this->filter();
+            return true;
+        }
+
+        return false;
+    }
+
+    /**
+     * Return the mailbox list object.
+     *
+     * @param IMP_Indices $indices  See IMP_Factory_MailboxList::__construct().
+     *
+     * @return IMP_Mailbox_List  See IMP_Factory_MailboxList::__construct().
      */
     public function getListOb($indices = null)
     {
@@ -598,12 +655,27 @@ class IMP_Mailbox implements Serializable
     }
 
     /**
-     * TODO
+     * Return the search query object for this mailbox.
+     *
+     * @return IMP_Search_Query  The search query object.
      */
     public function getSearchOb()
     {
         $imp_search = $GLOBALS['injector']->getInstance('IMP_Search');
         return $imp_search[$this->_mbox];
+    }
+
+    /**
+     * Return an indices object for this mailbox.
+     *
+     * @param mixed $in  Either a single UID, array of UIDs, or a
+     *                   Horde_Imap_Client_Ids object.
+     *
+     * @return IMP_Indices  An indices object.
+     */
+    public function getIndicesOb($in)
+    {
+        return new IMP_Indices($this, $in);
     }
 
     /**
@@ -792,7 +864,7 @@ class IMP_Mailbox implements Serializable
             if ($sortdir) {
                 $results['match']->reverse();
             }
-            return new IMP_Indices($this, $results['match']);
+            return $this->getIndicesOb($results['match']);
         } catch (IMP_Imap_Exception $e) {
             return new IMP_Indices();
         }
@@ -829,6 +901,58 @@ class IMP_Mailbox implements Serializable
         }
     }
 
+    /**
+     * Generate a URL using the current mailbox.
+     *
+     * @param string|Horde_Url $page  Page name to link to.
+     * @param string $uid             The UID to use on the linked page.
+     * @param string $tmailbox        The mailbox associated with $uid.
+     * @param boolean $encode         Encode the argument separator?
+     *
+     * @return Horde_Url  URL to $page with any necessary mailbox information
+     *                    added to the parameter list of the URL.
+     */
+    public function url($page, $uid = null, $tmailbox = null, $encode = true)
+    {
+        if ($page instanceof Horde_Url) {
+            $url = clone $page;
+        } else {
+            if (IMP::getViewMode() == 'dimp') {
+                $anchor = is_null($uid)
+                    ? ('mbox:' . $this->_mbox)
+                    : ('msg:' . strval($this->getIndicesOb($uid)));
+                return Horde::url('index.php')->setAnchor(IMP::base64urlEncode($anchor));
+            }
+
+            $url = Horde::url($page);
+        }
+
+        return $url->add($this->urlParams($uid, $tmailbox))->setRaw(!$encode);
+    }
+
+    /**
+     * Returns list of URL parameters necessary to indicate current mailbox
+     * status.
+     *
+     * @param string $uid       The UID to use on the linked page.
+     * @param string $tmailbox  The mailbox associated with $uid to use on
+     *                          the linked page.
+     *
+     * @return array  The list of parameters needed to indicate the current
+     *                mailbox status.
+     */
+    public function urlParams($uid = null, $tmailbox = null)
+    {
+        $params = array('mailbox' => $this->form_to);
+        if (!is_null($uid)) {
+            $params['uid'] = $uid;
+            if (!is_null($tmailbox) && ($this->_mbox != $tmailbox)) {
+                $params['thismailbox'] = IMP_Mailbox::get($tmailbox)->form_to;
+            }
+        }
+        return $params;
+    }
+
     /* Static methods. */
 
     /**
@@ -836,13 +960,15 @@ class IMP_Mailbox implements Serializable
      * Needed because null characters (used for various internal non-IMAP
      * mailbox representations) will not work in form elements.
      *
-     * @param string $mbox  The mailbox name.
+     * @param mixed $mbox  The mailbox name(s).
      *
-     * @return IMP_Mailbox  The mailbox object.
+     * @return mixed  The mailbox object(s).
      */
     static public function formFrom($mbox)
     {
-        return self::get(rawurldecode($mbox));
+        return is_array($mbox)
+            ? array_filter(array_map(array(__CLASS__, 'formFrom'), $mbox))
+            : self::get(IMP::base64urlDecode($mbox));
     }
 
     /**
@@ -850,13 +976,15 @@ class IMP_Mailbox implements Serializable
      * Needed because null characters (used for various internal non-IMAP
      * mailbox representations) will not work in form elements.
      *
-     * @param string $mbox  The mailbox name.
+     * @param mixed $mbox  The mailbox name(s).
      *
-     * @return string  The converted mailbox string.
+     * @return mixed  The converted mailbox string(s).
      */
     static public function formTo($mbox)
     {
-        return htmlspecialchars(rawurlencode($mbox), ENT_COMPAT, 'UTF-8');
+        return is_array($mbox)
+            ? array_filter(array_map(array(__CLASS__, 'formTo'), $mbox))
+            : IMP::base64urlEncode($mbox);
     }
 
     /**
@@ -911,7 +1039,7 @@ class IMP_Mailbox implements Serializable
      *
      * @param string $mbox  The full IMAP mailbox name (UTF7-IMAP).
      *
-     * @return string  THe value to store in a preference.
+     * @return string  The value to store in a preference.
      */
     static public function prefTo($mbox)
     {
@@ -919,7 +1047,7 @@ class IMP_Mailbox implements Serializable
         $def_ns = $imp_imap->defaultNamespace();
         $empty_ns = $imp_imap->getNamespace('');
 
-        if (($ns = $imp_imap->getNamespace($mbox)) !== null) {
+        if (($ns = self::get($mbox)->namespace_info) !== null) {
              if ($ns['name'] == $def_ns['name']) {
                  /* From personal namespace => strip namespace. */
                  return substr($mbox, strlen($def_ns['name']));
@@ -929,7 +1057,7 @@ class IMP_Mailbox implements Serializable
              }
          }
 
-        return $mbox;
+        return strval($mbox);
     }
 
     /* Internal methods. */
