@@ -142,6 +142,10 @@ var DimpCompose = {
                 : l.l;
         }
 
+        if (id == 'sm') {
+            s = s.base64urlEncode();
+        }
+
         $(k.opts.input).setValue(s);
         $(k.opts.label).writeAttribute('title', l.escapeHTML()).setText(l.truncate(15)).up(1).show();
 
@@ -392,7 +396,7 @@ var DimpCompose = {
                 callback: this.setMessageText.bind(this, false)
             });
 
-            this.rte.destroy();
+            this.rte.destroy(true);
             delete this.rte;
         } else {
             this.RTELoading('show');
@@ -770,13 +774,8 @@ var DimpCompose = {
         }
     },
 
-    resizeMsgArea: function()
+    resizeMsgArea: function(e)
     {
-        var lh, mah, msg, msg_h, rows,
-            cmp = $('composeMessageParent'),
-            de = document.documentElement,
-            pad = 0;
-
         if (this.resizing) {
             return;
         }
@@ -785,6 +784,17 @@ var DimpCompose = {
             this.resizeMsgArea.bind(this).defer();
             return;
         }
+
+        // IE 7/8 Bug - can't resize TEXTAREA in the resize event (Bug #10075)
+        if (e && Prototype.Browser.IE) {
+            this.resizeMsgArea.bind(this).delay(0.1);
+            return;
+        }
+
+        var lh, mah, msg, msg_h, rows,
+            cmp = $('composeMessageParent'),
+            de = document.documentElement,
+            pad = 0;
 
         /* Needed because IE 8 will trigger resize events when we change
          * the rows attribute, which will cause an infinite loop. */
@@ -847,6 +857,8 @@ var DimpCompose = {
     {
         var t = $('toggle' + type),
             s = t.siblings().first();
+
+        new TextareaResize(type);
 
         $('send' + type).show();
         if (s && s.visible()) {
@@ -1012,15 +1024,13 @@ var DimpCompose = {
 
         this.is_popup = !Object.isUndefined(DimpCore.base);
 
-        /* Initialize redirect elements (always needed). */
-        $('redirect').observe('submit', Event.stop);
-        new TextareaResize('redirect_to');
-        if (DIMP.conf_compose.URI_ABOOK) {
-            $('redirect_sendto').down('TD.label SPAN').addClassName('composeAddrbook');
-        }
-
-        /* Nothing more to do if this is strictly a redirect window. */
+        /* Initialize redirect elements. */
         if (DIMP.conf_compose.redirect) {
+            $('redirect').observe('submit', Event.stop);
+            new TextareaResize('redirect_to');
+            if (DIMP.conf_compose.URI_ABOOK) {
+                $('redirect_sendto').down('TD.label SPAN').addClassName('composeAddrbook');
+            }
             $('dimpLoading').hide();
             $('redirect', 'pageContainer').invoke('show');
             return;
@@ -1033,7 +1043,7 @@ var DimpCompose = {
         } else {
             document.observe('change', this.changeHandler.bindAsEventListener(this));
         }
-        Event.observe(window, 'resize', this.resizeMsgArea.bind(this));
+        Event.observe(window, 'resize', this.resizeMsgArea.bindAsEventListener(this));
         $('compose').observe('submit', Event.stop);
         $('submit_frame').observe('load', this.attachmentComplete.bind(this));
 
@@ -1078,14 +1088,7 @@ var DimpCompose = {
             this.setPopdownLabel('e', $F('encrypt'));
         }
 
-        // Automatically resize compose address fields.
         new TextareaResize('to');
-        if (DIMP.conf_compose.cc) {
-            new TextareaResize('cc');
-        }
-        if (DIMP.conf_compose.bcc) {
-            new TextareaResize('bcc');
-        }
 
         /* Add addressbook link formatting. */
         if (DIMP.conf_compose.URI_ABOOK) {
