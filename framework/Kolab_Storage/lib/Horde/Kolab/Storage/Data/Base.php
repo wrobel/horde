@@ -97,6 +97,18 @@ implements Horde_Kolab_Storage_Data, Horde_Kolab_Storage_Data_Query
     }
 
     /**
+     * Return the folder path for this data handler.
+     *
+     * @since Horde_Kolab_Storage 1.1.0
+     *
+     * @return string The folder path.
+     */
+    public function getPath()
+    {
+        return $this->_folder->getPath();
+    }
+
+    /**
      * Return the ID of this data handler.
      *
      * @return string The ID.
@@ -164,9 +176,9 @@ implements Horde_Kolab_Storage_Data, Horde_Kolab_Storage_Data_Query
     /**
      * Create a new object.
      *
-     * @param array   $object The array that holds the object data.
-     * @param boolean $raw    True if the data to be stored has been provided in
-     *                        raw format.
+     * @param array   &$object The array that holds the object data.
+     * @param boolean $raw     True if the data to be stored has been provided in
+     *                         raw format.
      *
      * @return string The ID of the new object or true in case the backend does
      *                not support this return value.
@@ -174,7 +186,7 @@ implements Horde_Kolab_Storage_Data, Horde_Kolab_Storage_Data_Query
      * @throws Horde_Kolab_Storage_Exception In case an error occured while
      *                                       saving the data.
      */
-    public function create($object, $raw = false)
+    public function create(&$object, $raw = false)
     {
         if (!isset($object['uid'])) {
             $object['uid'] = $this->generateUid();
@@ -466,6 +478,8 @@ implements Horde_Kolab_Storage_Data, Horde_Kolab_Storage_Data_Query
     /**
      * Delete the specified messages from this folder.
      *
+     * @since Horde_Kolab_Storage 1.1.0
+     *
      * @param array|string $uids Backend id(s) of the message to be deleted.
      *
      * @return NULL
@@ -521,9 +535,6 @@ implements Horde_Kolab_Storage_Data, Horde_Kolab_Storage_Data_Query
      */
     public function getQuery($name = null)
     {
-        if ($name === null) {
-            $name = self::QUERY_BASE;
-        }
         if (isset($this->_queries[$name])) {
             return $this->_queries[$name];
         } else {
