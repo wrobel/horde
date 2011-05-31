@@ -179,15 +179,14 @@ class Jonah_Driver_Kolab extends Jonah_Driver
         if (empty($info['id'])) {
             $data = $this->_getDataForFeed($info['channel_id']);
             $uid = $data->generateUid();
-            $data->create(
-                array(
-                    'uid' => $uid,
-                    'summary' => isset($info['title']) ? $info['title'] : null,
-                    'body' => isset($info['body']) ? $info['body'] : null,
-                    'categories' => isset($info['tags']) ? $info['tags'] : null,
-                    'link-attachment' => isset($info['url']) ? $info['url'] : null,
-                )
+            $object = array(
+                'uid' => $uid,
+                'summary' => isset($info['title']) ? $info['title'] : null,
+                'body' => isset($info['body']) ? $info['body'] : null,
+                'categories' => isset($info['tags']) ? $info['tags'] : null,
+                'link-attachment' => isset($info['url']) ? $info['url'] : null,
             );
+            $data->create($object);
         }
 
         if (empty($info['read'])) {
