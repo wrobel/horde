@@ -60,11 +60,11 @@
  *   RFC 5267 - CONTEXT=SEARCH; CONTEXT=SORT
  *   RFC 5465 - NOTIFY
  *   RFC 5466 - FILTERS
- *   RFC 5738 - UTF8
+ *   RFC 5738 - UTF8 (Very limited support)
+ *   RFC 6237 - MULTISEARCH
  *
- *   draft-ietf-morg-inthread-01 - SEARCH=INTHREAD
- *   draft-ietf-morg-multimailbox-search-07 - MULTISEARCH
- *   draft-krecicki-imap-move-01.txt - MOVE
+ *   draft-ietf-morg-inthread-01 - SEARCH=INTHREAD (Appears to be dead)
+ *   draft-krecicki-imap-move-01.txt - MOVE (Appears to be dead)
  *
  * [See: http://www.iana.org/assignments/imap4-capabilities]
  * </pre>
@@ -845,7 +845,7 @@ class Horde_Imap_Client_Socket extends Horde_Imap_Client_Base
                 ($this->_temp['parseresperr']['response'] == 'NO')) {
                 $this->_selected = null;
                 $this->_mode = 0;
-                $this->_exception($e, 'MAILBOX_NOOPEN');
+                $this->_exception($e, $e->getCode() ? $e->getCode() : 'MAILBOX_NOOPEN');
             }
             throw $e;
         }
@@ -1258,9 +1258,9 @@ class Horde_Imap_Client_Socket extends Horde_Imap_Client_Base
                             $data[$val] = ($key == Horde_Imap_Client::STATUS_FIRSTUNSEEN) ? null : 0;
                         } else {
                             /* RFC 3501 [6.3.1] - FIRSTUNSEEN information is
-                             * not mandatory. If missing EXAMINE/SELECT we
-                             * need to do a search. An UNSEEN count also
-                             * requires a search. */
+                             * not mandatory. If missing in EXAMINE/SELECT
+                             * results, we need to do a search. An UNSEEN
+                             * count also requires a search. */
                             if (is_null($search)) {
                                 $search_query = new Horde_Imap_Client_Search_Query();
                                 $search_query->flag(Horde_Imap_Client::FLAG_SEEN, false);
@@ -1543,19 +1543,27 @@ class Horde_Imap_Client_Socket extends Horde_Imap_Client_Base
         if (!empty($tmp['vanished'])) {
             $expunged = $tmp['vanished'];
         } elseif (!empty($tmp['expunge'])) {
-            $i = $last = 0;
-            $lookup = $s_res['uids']->ids;
+            $lookup = $s_res['lookup'];
 
             /* Expunge responses can come in any order. Thus, we need to
              * reindex anytime we have an index that appears equal to or
              * after a previously seen index. If an IMAP server is smart,
              * it will expunge in reverse order instead. */
-            foreach ($tmp['expunge'] as $val) {
-                if ($i++ && ($val >= $last)) {
-                    $lookup = array_values($lookup);
+            foreach ($tmp['expunge'] as &$val) {
+                $found = false;
+                $tmp2 = array();
+
+                foreach (array_keys($lookup) as $i => $seq) {
+                    if ($found) {
+                        $tmp2[$seq - 1] = $lookup[$seq];
+                    } elseif ($seq == $val) {
+                        $expunged[] = $lookup[$seq];
+                        $tmp2 = array_slice($lookup, 0, $i, true);
+                        $found = true;
+                    }
                 }
-                $expunged[] = $lookup[$val - 1];
-                $last = $val;
+
+                $lookup = $tmp2;
             }
         }
 
@@ -3570,11 +3578,14 @@ class Horde_Imap_Client_Socket extends Horde_Imap_Client_Base
      * Perform a command on the IMAP server. A connection to the server must
      * have already been made.
      *
-     * @todo RFC 3501 allows the sending of multiple commands at once. For
-     *       simplicity of implementation at this time, we will execute
-     *       commands one at a time. This allows us to easily determine data
-     *       meant for a command while scanning for untagged responses
-     *       unilaterally sent by the server.
+     * RFC 3501 allows the sending of multiple commands at once. For
+     * simplicity of implementation, we will execute commands one at a time.
+     * This allows us to easily determine data meant for a command while
+     * scanning for untagged responses unilaterally sent by the server.
+     * The only advantage of pipelining commands is to reduce the (small)
+     * amount of overhead needed to send commands. Modern IMAP servers do not
+     * meaningfully optimize response order internally, so that is not a
+     * worthwhile reason to implement pipelining.
      *
      * @param mixed $data    The IMAP command to execute. If string output as
      *                       is. If array, parsed via parseCommandArray(). If
@@ -3666,8 +3677,8 @@ class Horde_Imap_Client_Socket extends Horde_Imap_Client_Base
                     fwrite($this->_debug, '[LITERAL DATA - ' . ftell($data) . ' bytes]' . "\n");
                 } else {
                     rewind($data);
-                    while ($in = fread($data, 8192)) {
-                        fwrite($this->_debug, $in);
+                    while (!feof($data)) {
+                        fwrite($this->_debug, fread($data, 8192));
                     }
                 }
             } else {
@@ -3721,8 +3732,8 @@ class Horde_Imap_Client_Socket extends Horde_Imap_Client_Base
         } else {
             $binary = false;
             rewind($data);
-            while (($in = fread($data, 4096))) {
-                if (strpos($in, "\0") !== false) {
+            while (!feof($data)) {
+                if (strpos(fread($data, 4096), "\0") !== false) {
                     $binary = true;
                     break;
                 }
@@ -3912,7 +3923,8 @@ class Horde_Imap_Client_Socket extends Horde_Imap_Client_Base
                 $stream = true;
             }
 
-            while ($len && ($in = fread($this->_stream, min($len, 8192)))) {
+            while ($len && !feof($this->_stream)) {
+                $in = fread($this->_stream, min($len, 8192));
                 if ($stream) {
                     fwrite($data, $in);
                 } else {
@@ -4236,43 +4248,34 @@ class Horde_Imap_Client_Socket extends Horde_Imap_Client_Base
      */
     protected function _parseStatusResponse($ob)
     {
-        if ($ob['line'][0] != '[') {
+        $response = $this->_parseResponseText($ob['line']);
+        if (!isset($response->code)) {
             return;
-        }
-
-        $pos = strpos($ob['line'], ' ', 2);
-        $end_pos = strpos($ob['line'], ']', 2);
-        if ($pos > $end_pos) {
-            $code = strtoupper(substr($ob['line'], 1, $end_pos - 1));
-            $data = trim(substr($ob['line'], $end_pos + 1));
-        } else {
-            $code = strtoupper(substr($ob['line'], 1, $pos - 1));
-            $data = substr($ob['line'], $pos + 1, $end_pos - $pos - 1);
         }
 
         $this->_temp['parsestatuserr'] = null;
 
-        switch ($code) {
+        switch ($response->code) {
         case 'ALERT':
         // Defined by RFC 5530 [3] - Treat as an alert for now.
         case 'CONTACTADMIN':
             if (!isset($this->_temp['alerts'])) {
                 $this->_temp['alerts'] = array();
             }
-            $this->_temp['alerts'][] = $data;
+            $this->_temp['alerts'][] = $response->data;
             break;
 
         case 'BADCHARSET':
-            /* @todo Store the list of search charsets supported by the server
+            /* TODO: Store the list of search charsets supported by the server
              * (this is a MAY response, not a MUST response) */
             $this->_temp['parsestatuserr'] = array(
                 'BADCHARSET',
-                substr($ob['line'], $end_pos + 2)
+                $response->text
             );
             break;
 
         case 'CAPABILITY':
-            $this->_tokenizeData($data);
+            $this->_tokenizeData($response->data);
             $this->_parseCapability($this->_temp['token']['out']);
             $this->_temp['token'] = null;
             break;
@@ -4280,7 +4283,7 @@ class Horde_Imap_Client_Socket extends Horde_Imap_Client_Base
         case 'PARSE':
             $this->_temp['parsestatuserr'] = array(
                 'PARSEERROR',
-                substr($ob['line'], $end_pos + 2)
+                $response->text
             );
             break;
 
@@ -4298,32 +4301,32 @@ class Horde_Imap_Client_Socket extends Horde_Imap_Client_Base
             break;
 
         case 'PERMANENTFLAGS':
-            $this->_tokenizeData($data);
+            $this->_tokenizeData($response->data);
             $this->_temp['mailbox']['permflags'] = array_map('strtolower', reset($this->_temp['token']['out']));
             $this->_temp['token'] = null;
             break;
 
         case 'UIDNEXT':
         case 'UIDVALIDITY':
-            $this->_temp['mailbox'][strtolower($code)] = $data;
+            $this->_temp['mailbox'][strtolower($response->code)] = $response->data;
             break;
 
         case 'UNSEEN':
             /* This is different from the STATUS UNSEEN response - this item,
              * if defined, returns the first UNSEEN message in the mailbox. */
-            $this->_temp['mailbox']['firstunseen'] = $data;
+            $this->_temp['mailbox']['firstunseen'] = $response->data;
             break;
 
         case 'REFERRAL':
             // Defined by RFC 2221
-            $this->_temp['referral'] = $this->utils->parseUrl($data);
+            $this->_temp['referral'] = $this->utils->parseUrl($response->data);
             break;
 
         case 'UNKNOWN-CTE':
             // Defined by RFC 3516
             $this->_temp['parsestatuserr'] = array(
                 'UNKNOWNCTE',
-                substr($ob['line'], $end_pos + 2)
+                $response->text
             );
             break;
 
@@ -4332,7 +4335,7 @@ class Horde_Imap_Client_Socket extends Horde_Imap_Client_Base
             // Defined by RFC 4315
             // APPENDUID: [0] = UIDVALIDITY, [1] = UID(s)
             // COPYUID: [0] = UIDVALIDITY, [1] = UIDFROM, [2] = UIDTO
-            $parts = explode(' ', $data);
+            $parts = explode(' ', $response->data);
 
             if (($this->_selected == $this->_temp['uidplusmbox']) &&
                 ($this->_temp['mailbox']['uidvalidity'] != $parts[0])) {
@@ -4346,7 +4349,7 @@ class Horde_Imap_Client_Socket extends Horde_Imap_Client_Base
                 'uidvalid' => $parts[0]
             ));
 
-            if ($code == 'APPENDUID') {
+            if ($response->code == 'APPENDUID') {
                 $this->_temp['appenduid'] = array_merge($this->_temp['appenduid'], $this->utils->fromSequenceString($parts[1]));
             } else {
                 $this->_temp['copyuid'] = array_combine($this->utils->fromSequenceString($parts[1]), $this->utils->fromSequenceString($parts[2]));
@@ -4363,7 +4366,7 @@ class Horde_Imap_Client_Socket extends Horde_Imap_Client_Base
             // Defined by RFC 4469 [4.1]
             $this->_temp['parsestatuserr'] = array(
                 'CATENATE_BADURL',
-                substr($ob['line'], $end_pos + 2)
+                $response->text
             );
             break;
 
@@ -4371,13 +4374,13 @@ class Horde_Imap_Client_Socket extends Horde_Imap_Client_Base
             // Defined by RFC 4469 [4.2]
             $this->_temp['parsestatuserr'] = array(
                 'CATENATE_TOOBIG',
-                substr($ob['line'], $end_pos + 2)
+                $response->text
             );
             break;
 
         case 'HIGHESTMODSEQ':
             // Defined by RFC 4551 [3.1.1]
-            $this->_temp['mailbox']['highestmodseq'] = $data;
+            $this->_temp['mailbox']['highestmodseq'] = $response->data;
             break;
 
         case 'NOMODSEQ':
@@ -4387,7 +4390,7 @@ class Horde_Imap_Client_Socket extends Horde_Imap_Client_Base
 
         case 'MODIFIED':
             // Defined by RFC 4551 [3.2]
-            $this->_temp['modified']->add($data);
+            $this->_temp['modified']->add($response->data);
             break;
 
         case 'CLOSED':
@@ -4409,12 +4412,12 @@ class Horde_Imap_Client_Socket extends Horde_Imap_Client_Base
             // Defined by RFC 5255 [4.9]
             $this->_temp['parsestatuserr'] = array(
                 'BADCOMPARATOR',
-                substr($ob['line'], $end_pos + 2)
+                $response->text
             );
             break;
 
         case 'METADATA':
-            $this->_tokenizeData($data);
+            $this->_tokenizeData($response->data);
 
             switch (reset($this->_temp['token']['out'])) {
             case 'LONGENTRIES':
@@ -4434,7 +4437,7 @@ class Horde_Imap_Client_Socket extends Horde_Imap_Client_Base
                 // Defined by RFC 5464 [4.3]
                 $this->_temp['parsestatuserr'] = array(
                     'METADATA_NOPRIVATE',
-                    substr($ob['line'], $end_pos + 2)
+                    $response->text
                 );
                 break;
 
@@ -4442,7 +4445,7 @@ class Horde_Imap_Client_Socket extends Horde_Imap_Client_Base
                 // Defined by RFC 5464 [4.3]
                 $this->_temp['parsestatuserr'] = array(
                     'METADATA_TOOMANY',
-                    substr($ob['line'], $end_pos + 2)
+                    $response->text
                 );
                 break;
             }
@@ -4477,7 +4480,7 @@ class Horde_Imap_Client_Socket extends Horde_Imap_Client_Base
             // Defined by RFC 5530 [3]
             $this->_temp['parsestatuserr'] = array(
                 'NOPERM',
-                substr($ob['line'], $end_pos + 2)
+                $response->text
             );
             break;
 
@@ -4485,7 +4488,7 @@ class Horde_Imap_Client_Socket extends Horde_Imap_Client_Base
             // Defined by RFC 5530 [3]
             $this->_temp['parsestatuserr'] = array(
                 'INUSE',
-                substr($ob['line'], $end_pos + 2)
+                $response->text
             );
             break;
 
@@ -4498,7 +4501,7 @@ class Horde_Imap_Client_Socket extends Horde_Imap_Client_Base
             // Defined by RFC 5530 [3]
             $this->_temp['parsestatuserr'] = array(
                 'CORRUPTION',
-                substr($ob['line'], $end_pos + 2)
+                $response->text
             );
             break;
 
@@ -4515,7 +4518,7 @@ class Horde_Imap_Client_Socket extends Horde_Imap_Client_Base
             // Defined by RFC 5530 [3]
             $this->_temp['parsestatuserr'] = array(
                 'LIMIT',
-                substr($ob['line'], $end_pos + 2)
+                $response->text
             );
             break;
 
@@ -4523,7 +4526,7 @@ class Horde_Imap_Client_Socket extends Horde_Imap_Client_Base
             // Defined by RFC 5530 [3]
             $this->_temp['parsestatuserr'] = array(
                 'OVERQUOTA',
-                substr($ob['line'], $end_pos + 2)
+                $response->text
             );
             break;
 
@@ -4531,7 +4534,7 @@ class Horde_Imap_Client_Socket extends Horde_Imap_Client_Base
             // Defined by RFC 5530 [3]
             $this->_temp['parsestatuserr'] = array(
                 'ALREADYEXISTS',
-                substr($ob['line'], $end_pos + 2)
+                $response->text
             );
             break;
 
@@ -4539,7 +4542,7 @@ class Horde_Imap_Client_Socket extends Horde_Imap_Client_Base
             // Defined by RFC 5530 [3]
             $this->_temp['parsestatuserr'] = array(
                 'NONEXISTENT',
-                substr($ob['line'], $end_pos + 2)
+                $response->text
             );
             break;
 
@@ -4547,7 +4550,7 @@ class Horde_Imap_Client_Socket extends Horde_Imap_Client_Base
             // Defined by RFC 6154 [3]
             $this->_temp['parsestatuserr'] = array(
                 'USEATTR',
-                substr($ob['line'], $end_pos + 2)
+                $response->text
             );
             break;
 

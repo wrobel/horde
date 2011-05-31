@@ -17,10 +17,10 @@ owns or has access to.</description>
   <email>chuck@horde.org</email>
   <active>yes</active>
  </lead>
- <date>2011-05-03</date>
- <time>13:39:47</time>
+ <date>2011-05-18</date>
+ <time>14:51:32</time>
  <version>
-  <release>1.1.0</release>
+  <release>1.1.1</release>
   <api>1.1.0</api>
  </version>
  <stability>
@@ -29,8 +29,7 @@ owns or has access to.</description>
  </stability>
  <license uri="http://www.gnu.org/copyleft/lesser.html">LGPL</license>
  <notes>
-* [mjr] Fix usage of countOwners() and listOwners() in the Sqlng driver.
-* [mjr] Add ability to immediately save a single attribute change.
+* 
  </notes>
  <contents>
   <dir baseinstalldir="/" name="/">
@@ -728,11 +727,25 @@ Initial release as a PEAR package
    <stability>
     <release>stable</release>
     <api>stable</api></stability>
-   <date>2011-05-03</date>
+   <date>2011-05-18</date>
    <license uri="http://www.gnu.org/copyleft/lesser.html">LGPL</license>
    <notes>
 * [mjr] Fix usage of countOwners() and listOwners() in the Sqlng driver.
 * [mjr] Add ability to immediately save a single attribute change.
+* [jan] Updated Spanish translation.
+   </notes>
+  </release>
+  <release>
+   <version>
+    <release>1.1.1</release>
+    <api>1.1.0</api></version>
+   <stability>
+    <release>stable</release>
+    <api>stable</api></stability>
+   <date>2011-05-18</date>
+   <license uri="http://www.gnu.org/copyleft/lesser.html">LGPL</license>
+   <notes>
+* 
    </notes>
   </release>
  </changelog>

@@ -1340,9 +1340,7 @@ class Horde_Registry
         if ($checkPerms &&
             ($tasks = $GLOBALS['injector']->getInstance('Horde_Core_Factory_LoginTasks')->create($app)) &&
             !empty($options['logintasks'])) {
-            $tasks->runTasks(array(
-                'url' => Horde::selfUrl(true, true, true)
-            ));
+            $tasks->runTasks();
         }
 
         return true;
@@ -2164,7 +2162,7 @@ class Horde_Registry
             ? 'horde'
             : $options['app'];
 
-        if ($this->getAuth()) {
+        if ($this->getAuth() == $authId) {
             /* Store app credentials. */
             $this->setAuthCredential($credentials, null, $app);
         } else {
