@@ -40,7 +40,9 @@ extends Horde_Kolab_Storage_TestCase
     {
         $this->assertEquals(
             array(1 => false),
-            $this->_getBrokenStore()->fetch(array('1'))
+            $this->_getBrokenStore(
+                array('ignore_parse_errors' => true)
+            )->fetch(array('1'))
         );
     }
 
@@ -155,11 +157,11 @@ extends Horde_Kolab_Storage_TestCase
             $data, array('factory' => $factory)
         );
         $data->registerQuery(
-            Horde_Kolab_Storage_Data::QUERY_BASE, $query
+            Horde_Kolab_Storage_Data::QUERY_PREFS, $query
         );
         $this->assertInstanceOf(
             'Horde_Kolab_Storage_Stub_DataQuery',
-            $data->getQuery()
+            $data->getQuery(Horde_Kolab_Storage_Data::QUERY_PREFS)
         );
     }
 
@@ -172,7 +174,7 @@ extends Horde_Kolab_Storage_TestCase
         $data = $this->getMessageStorage()
             ->getData('INBOX/Calendar');
         $data->registerQuery(
-            Horde_Kolab_Storage_Data::QUERY_BASE,
+            Horde_Kolab_Storage_Data::QUERY_PREFS,
             new Horde_Kolab_Storage_Stub_ListQuery(
                 $this->getMessageStorage()
                 ->getList(),
@@ -283,11 +285,12 @@ extends Horde_Kolab_Storage_TestCase
 
     public function testCreateReturnsString()
     {
+        $object = array('summary' => 'test');
         $this->assertEquals(
             1,
             $this->getMessageStorage()
             ->getData('INBOX/Notes')
-            ->create(array('summary' => 'test'))
+            ->create($object)
         );
     }
 
@@ -304,20 +307,22 @@ extends Horde_Kolab_Storage_TestCase
     public function testCreateRaw()
     {
         $test = fopen('php://temp', 'r+');
+        $object = array('content' => $test);
         fputs($test, 'test');
         rewind($test);
         $this->assertEquals(
             1,
             $this->getMessageStorage()
             ->getData('INBOX/Notes')
-            ->create(array('content' => $test), true)
+            ->create($object, true)
         );
     }
 
     public function testListAddedObjects()
     {
         $data = $this->getMessageStorage()->getData('INBOX/Notes');
-        $data->create(array('summary' => 'test', 'uid' => 'UID'));
+        $object = array('summary' => 'test', 'uid' => 'UID');
+        $data->create($object);
         $this->assertEquals(
             array('UID'),
             $data->getObjectIds()
@@ -327,7 +332,8 @@ extends Horde_Kolab_Storage_TestCase
     public function testDeleteObject()
     {
         $data = $this->getMessageStorage()->getData('INBOX/Notes');
-        $data->create(array('summary' => 'test', 'uid' => 'UID'));
+        $object = array('summary' => 'test', 'uid' => 'UID');
+        $data->create($object);
         $data->delete('UID');
         $this->assertEquals(
             array(),
@@ -338,8 +344,10 @@ extends Horde_Kolab_Storage_TestCase
     public function testDeleteAll()
     {
         $data = $this->getMessageStorage()->getData('INBOX/Notes');
-        $data->create(array('summary' => 'test', 'uid' => 'UID1'));
-        $data->create(array('summary' => 'test', 'uid' => 'UID2'));
+        $object = array('summary' => 'test', 'uid' => 'UID1');
+        $data->create($object);
+        $object = array('summary' => 'test', 'uid' => 'UID2');
+        $data->create($object);
         $data->deleteAll();
         $this->assertEquals(
             array(),
@@ -351,7 +359,8 @@ extends Horde_Kolab_Storage_TestCase
     {
         $store = $this->getMessageStorage();
         $data = $store->getData('INBOX/Notes');
-        $data->create(array('summary' => 'test', 'uid' => 'UID'));
+        $object = array('summary' => 'test', 'uid' => 'UID');
+        $data->create($object);
         $data->move('UID', 'INBOX/OtherNotes');
         $other = $store->getData('INBOX/OtherNotes');
         $this->assertEquals(
@@ -371,7 +380,8 @@ extends Horde_Kolab_Storage_TestCase
     {
         $store = $this->getMessageStorage();
         $data = $store->getData('INBOX/Notes');
-        $data->create(array('summary' => 'test', 'uid' => 'UID'));
+        $object = array('summary' => 'test', 'uid' => 'UID');
+        $data->create($object);
         $data->modify(array('summary' => 'test'));
     }
 
@@ -382,7 +392,8 @@ extends Horde_Kolab_Storage_TestCase
     {
         $store = $this->getMessageStorage();
         $data = $store->getData('INBOX/Notes');
-        $data->create(array('summary' => 'test', 'uid' => 'UID'));
+        $object = array('summary' => 'test', 'uid' => 'UID');
+        $data->create($object);
         $data->modify(array('summary' => 'test', 'uid' => 'NOSUCHUID'));
     }
 
@@ -390,7 +401,8 @@ extends Horde_Kolab_Storage_TestCase
     {
         $store = $this->getMessageStorage();
         $data = $store->getData('INBOX/Notes');
-        $data->create(array('summary' => 'test', 'uid' => 'UID'));
+        $object = array('summary' => 'test', 'uid' => 'UID');
+        $data->create($object);
         $data->modify(array('summary' => 'modified', 'uid' => 'UID'));
         $object = $data->getObject('UID');
         $this->assertEquals('modified', $object['summary']);

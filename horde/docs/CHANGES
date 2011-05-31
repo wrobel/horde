@@ -1,6 +1,13 @@
 ----------
-v4.0.3-git
+v4.0.4-git
 ----------
+
+[gwr] Added support for the Kolab IMAP based preferences backend.
+
+
+------
+v4.0.3
+------
 
 [mjr] Fix usage of countOwners() and listOwners() in the Sqlng driver.
 [mms] Fix return link after reporting problem (Bug #10069).

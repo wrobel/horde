@@ -22,10 +22,10 @@
   <email>mrubinsk@horde.org</email>
   <active>yes</active>
  </lead>
- <date>2011-05-03</date>
- <time>16:24:24</time>
+ <date>2011-05-18</date>
+ <time>15:10:33</time>
  <version>
-  <release>3.0.3</release>
+  <release>3.0.4</release>
   <api>3.0.0</api>
  </version>
  <stability>
@@ -34,10 +34,8 @@
  </stability>
  <license uri="http://www.gnu.org/licenses/gpl.html">GPL</license>
  <notes>
-* [jan] Add header for timeobjects calendars.
-* [jan] Fix date picker in advanced search form (Bug #10039).
-* [mjr] Remove visible exceptions when deleting recurring events (Bug #10013).
-* [mjr] Fix issue causing listTimeObject calendars to not appear (Bug #10012).
+* [jan] Only highlight days in the mini calendar that are currently displayed (Bug #10048).
+* [jan] Fix advanced search with empty search criteria (Bug #10038).
  </notes>
  <contents>
   <dir baseinstalldir="/" name="/">
@@ -1732,13 +1730,27 @@
    <stability>
     <release>stable</release>
     <api>stable</api></stability>
-   <date>2011-05-03</date>
+   <date>2011-05-18</date>
    <license uri="http://www.gnu.org/licenses/gpl.html">GPL</license>
    <notes>
 * [jan] Add header for timeobjects calendars.
 * [jan] Fix date picker in advanced search form (Bug #10039).
 * [mjr] Remove visible exceptions when deleting recurring events (Bug #10013).
 * [mjr] Fix issue causing listTimeObject calendars to not appear (Bug #10012).
+   </notes>
+  </release>
+  <release>
+   <version>
+    <release>3.0.4</release>
+    <api>3.0.0</api></version>
+   <stability>
+    <release>stable</release>
+    <api>stable</api></stability>
+   <date>2011-05-18</date>
+   <license uri="http://www.gnu.org/licenses/gpl.html">GPL</license>
+   <notes>
+* [jan] Only highlight days in the mini calendar that are currently displayed (Bug #10048).
+* [jan] Fix advanced search with empty search criteria (Bug #10038).
    </notes>
   </release>
  </changelog>
