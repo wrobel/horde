@@ -80,6 +80,26 @@ class IMP_Ajax_Application extends Horde_Core_Ajax_Application
     }
 
     /**
+     * AJAX action: Check access rights for creation of a sub mailbox.
+     *
+     * Variables used:
+     *   - mbox: (string) The name of the mailbox to check.
+     *
+     * @return boolean  True if sub mailboxes can be created
+     */
+    public function createMailboxPrepare()
+    {
+        $mbox = IMP_Mailbox::get($this->_vars->mbox);
+
+        if (!$mbox->access_creatembox) {
+            $GLOBALS['notification']->push(sprintf(_("You may not create child folders in \"%s\"."), $mbox->display), 'horde.error');
+            return false;
+        }
+
+        return true;
+    }
+
+    /**
      * AJAX action: Create a mailbox.
      *
      * Variables used:
@@ -123,6 +143,36 @@ class IMP_Ajax_Application extends Horde_Core_Ajax_Application
         }
 
         return $result;
+    }
+
+    /**
+     * AJAX action: Check access rights for deletion/rename of mailbox.
+     *
+     * Variables used:
+     *   - mbox: (string) The name of the mailbox to check.
+     *   - type: (string) Either 'delete' or 'rename'.
+     *
+     * @return boolean  True if sub mailboxes can be created
+     */
+    public function deleteMailboxPrepare()
+    {
+        $mbox = IMP_Mailbox::get($this->_vars->mbox);
+
+        if (!$mbox->fixed && $mbox->access_deletembox) {
+            return true;
+        }
+
+        switch ($this->_vars->type) {
+        case 'delete':
+            $GLOBALS['notification']->push(sprintf(_("You may not delete \"%s\"."), $mbox->display), 'horde.error');
+            break;
+
+        case 'rename':
+            $GLOBALS['notification']->push(sprintf(_("You may not rename \"%s\"."), $mbox->display), 'horde.error');
+            break;
+        }
+
+        return false;
     }
 
     /**
@@ -647,9 +697,11 @@ class IMP_Ajax_Application extends Horde_Core_Ajax_Application
             return false;
         }
 
+        $mbox = IMP_Mailbox::get($this->_vars->view);
+
         /* Change sort preferences if necessary. */
         if (isset($this->_vars->sortby) || isset($this->_vars->sortdir)) {
-            IMP_Mailbox::get($this->_vars->view)->setSort($this->_vars->sortby, $this->_vars->sortdir);
+            $mbox->setSort($this->_vars->sortby, $this->_vars->sortdir);
         }
 
         $changed = $this->_changed(false);
@@ -657,7 +709,7 @@ class IMP_Ajax_Application extends Horde_Core_Ajax_Application
         if (is_null($changed)) {
             $list_msg = new IMP_Views_ListMessages();
             $result = new stdClass;
-            $result->ViewPort = $list_msg->getBaseOb($this->_vars->view);
+            $result->ViewPort = $list_msg->getBaseOb($mbox);
 
             $req_id = $this->_vars->requestid;
             if (!is_null($req_id)) {
@@ -667,7 +719,7 @@ class IMP_Ajax_Application extends Horde_Core_Ajax_Application
             return $result;
         }
 
-        $this->_queue->poll($this->_vars->view);
+        $this->_queue->poll($mbox);
 
         if ($changed ||
             $this->_vars->rangeslice ||
@@ -1077,7 +1129,13 @@ class IMP_Ajax_Application extends Horde_Core_Ajax_Application
             }
 
             /* Add changed flag information. */
-            $this->_queue->flag(array(Horde_Imap_Client::FLAG_SEEN), true, $indices);
+            $imp_imap = $GLOBALS['injector']->getInstance('IMP_Factory_Imap')->create();
+            if ($imp_imap->imap) {
+                $status = $imp_imap->status($this->_vars->view, Horde_Imap_Client::STATUS_PERMFLAGS);
+                if (in_array(Horde_Imap_Client::FLAG_SEEN, $status['permflags'])) {
+                    $this->_queue->flag(array(Horde_Imap_Client::FLAG_SEEN), true, $indices);
+                }
+            }
         } catch (IMP_Imap_Exception $e) {
             $result->preview->error = $e->getMessage();
             $result->preview->errortype = 'horde.error';
@@ -1611,32 +1669,29 @@ class IMP_Ajax_Application extends Horde_Core_Ajax_Application
      *
      * See the list of variables needed for _dimpComposeSetup(). Additional
      * variables used:
-     * <pre>
-     * 'encrypt' - (integer) The encryption method to use
-     *             (IMP ENCRYPT constants).
-     * 'html' - (integer) In HTML compose mode?
-     * 'message' - (string) The message text.
-     * 'priority' - TODO
-     * 'request_read_receipt' - (boolean) Add request read receipt header?
-     * 'save_attachments_select' - TODO
-     * 'save_sent_mail' - TODO
-     * 'save_sent_mail_folder' - (string) TODO
-     * </pre>
+     *   - encrypt: (integer) The encryption method to use (IMP ENCRYPT
+     *              constants).
+     *   - html: (integer) In HTML compose mode?
+     *   - message: (string) The message text.
+     *   - priority: (string) The priority of the message.
+     *   - request_read_receipt: (boolean) Add request read receipt header?
+     *   - save_attachments_select: (boolean) Whether to save attachments.
+     *   - save_sent_mail: (boolean) True if saving sent mail.
+     *   - save_sent_mail_folder: (string) base64url encoded version of
+     *                            sent mailbox to use.
      *
      * @return object  An object with the following entries:
-     * <pre>
-     * 'action' - (string) The AJAX action string
-     * 'draft_delete' - (integer) TODO
-     * 'encryptjs' - (array) Javascript to run after encryption failure.
-     * 'flag' - (array) See IMP_Ajax_Queue::generate().
-     * 'identity' - (integer) If set, this is the identity that is tied to
-     *              the current recipient address.
-     * 'log' - (array) TODO
-     * 'mailbox' - (array) TODO
-     * 'mbox' - (string) Mailbox of original message.
-     * 'success' - (integer) 1 on success, 0 on failure.
-     * 'uid' - (integer) IMAP UID of original message.
-     * </pre>
+     *   - action: (string) The AJAX action string
+     *   - draft_delete: (integer) If set, remove auto-saved drafts.
+     *   - encryptjs: (array) Javascript to run after encryption failure.
+     *   - flag: (array) See IMP_Ajax_Queue::generate().
+     *   - identity: (integer) If set, this is the identity that is tied to
+     *               the current recipient address.
+     *   - log: (array) Maillog information
+     *   - mailbox: (array) See _getMailboxResponse().
+     *   - mbox: (string) Mailbox of original message.
+     *   - success: (integer) 1 on success, 0 on failure.
+     *   - uid: (integer) IMAP UID of original message.
      */
     public function sendMessage()
     {
@@ -1668,7 +1723,7 @@ class IMP_Ajax_Application extends Horde_Core_Ajax_Application
                             ? (bool)$this->_vars->save_sent_mail
                             : $identity->getValue('save_sent_mail')),
             'sent_folder' => ($sm_displayed
-                              ? (isset($this->_vars->save_sent_mail_folder) ? $this->_vars->save_sent_mail_folder : $identity->getValue('sent_mail_folder'))
+                              ? (isset($this->_vars->save_sent_mail_folder) ? IMP_Mailbox::formFrom($this->_vars->save_sent_mail_folder) : $identity->getValue('sent_mail_folder'))
                               : $identity->getValue('sent_mail_folder'))
         );
 
@@ -2195,8 +2250,9 @@ class IMP_Ajax_Application extends Horde_Core_Ajax_Application
             $ob->l = $tmp;
         }
 
-        if ($elt->parent != IMP_Imap_Tree::BASE_ELT) {
-            $ob->pa = $elt->parent;
+        $parent = $elt->parent;
+        if ($parent != IMP_Imap_Tree::BASE_ELT) {
+            $ob->pa = strval($parent);
         }
         if ($elt->vfolder) {
             $ob->v = $elt->editvfolder ? 2 : 1;

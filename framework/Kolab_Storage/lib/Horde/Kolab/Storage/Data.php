@@ -28,8 +28,18 @@
 interface Horde_Kolab_Storage_Data
 extends Horde_Kolab_Storage_Queriable
 {
-    /** Identifies the basic list query */
-    const QUERY_BASE  = 'Data';
+    /** Identifies the preferences query */
+    /** @since Horde_Kolab_Storage 1.1.0 */
+    const QUERY_PREFS  = 'Preferences';
+
+    /**
+     * Return the folder path for this data handler.
+     *
+     * @since Horde_Kolab_Storage 1.1.0
+     *
+     * @return string The folder path.
+     */
+    public function getPath();
 
     /**
      * Return the ID of this data handler.
@@ -70,16 +80,17 @@ extends Horde_Kolab_Storage_Queriable
     /**
      * Create a new object.
      *
-     * @param array   $object The array that holds the object data.
-     * @param boolean $raw    True if the data to be stored has been provided in
-     *                        raw format.
+     * @param array   &$object The array that holds the object data.
+     * @param boolean $raw     True if the data to be stored has been provided in
+     *                         raw format.
      *
-     * @return NULL
+     * @return string The ID of the new object or true in case the backend does
+     *                not support this return value.
      *
      * @throws Horde_Kolab_Storage_Exception In case an error occured while
      *                                       saving the data.
      */
-    public function create($object, $raw = false);
+    public function create(&$object, $raw = false);
 
     /**
      * Modify an existing object.
@@ -179,6 +190,8 @@ extends Horde_Kolab_Storage_Queriable
 
     /**
      * Delete the specified messages from this folder.
+     *
+     * @since Horde_Kolab_Storage 1.1.0
      *
      * @param array|string $uids Backend id(s) of the message to be deleted.
      *
