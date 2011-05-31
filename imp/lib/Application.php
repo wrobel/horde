@@ -57,7 +57,7 @@ class IMP_Application extends Horde_Registry_Application
 
     /**
      */
-    public $version = 'H4 (5.0.4-git)';
+    public $version = 'H4 (5.0.5-git)';
 
     /**
      * Cached values to add to the session after authentication.
@@ -266,7 +266,7 @@ class IMP_Application extends Horde_Registry_Application
         $menu->addArray(array(
             'icon' => 'folders/inbox.png',
             'text' => _("_Inbox"),
-            'url' => IMP::generateIMPUrl($menu_mailbox_url, 'INBOX')
+            'url' => IMP_Mailbox::get('INBOX')->url($menu_mailbox_url)
         ));
 
         if ($imp_imap->access(IMP_Imap::ACCESS_TRASH) &&
@@ -279,7 +279,7 @@ class IMP_Application extends Horde_Registry_Application
                 'icon' => 'empty_trash.png',
                 'onclick' => 'return window.confirm(' . Horde_Serialize::serialize(_("Are you sure you wish to empty your trash folder?"), Horde_Serialize::JSON, 'UTF-8') . ')',
                 'text' => _("Empty _Trash"),
-                'url' => IMP::generateIMPUrl($menu_mailbox_url, $trash_folder)->add(array('actionID' => 'empty_mailbox', 'mailbox_token' => $injector->getInstance('Horde_Token')->get('imp.mailbox')))
+                'url' => $trash_folder->url($menu_mailbox_url)->add(array('actionID' => 'empty_mailbox', 'mailbox_token' => $injector->getInstance('Horde_Token')->get('imp.mailbox')))
             ));
         }
 
@@ -292,7 +292,7 @@ class IMP_Application extends Horde_Registry_Application
                 'icon' =>  'empty_spam.png',
                 'onclick' => 'return window.confirm(' . Horde_Serialize::serialize(_("Are you sure you wish to empty your trash folder?"), Horde_Serialize::JSON, 'UTF-8') . ')',
                 'text' => _("Empty _Spam"),
-                'url' => IMP::generateIMPUrl($menu_mailbox_url, $spam_folder)->add(array('actionID' => 'empty_mailbox', 'mailbox_token' => $injector->getInstance('Horde_Token')->get('imp.mailbox')))
+                'url' => $spam_folder->url($menu_mailbox_url)->add(array('actionID' => 'empty_mailbox', 'mailbox_token' => $injector->getInstance('Horde_Token')->get('imp.mailbox')))
             ));
         }
 
@@ -518,12 +518,9 @@ class IMP_Application extends Horde_Registry_Application
     public function sidebarCreate(Horde_Tree_Base $tree, $parent = null,
                                   array $params = array())
     {
-        global $injector, $prefs, $registry;
+        global $injector, $registry;
 
-        /* Run filters now */
-        if ($prefs->getValue('filter_on_display')) {
-            $injector->getInstance('IMP_Filter')->filter('INBOX');
-        }
+        IMP_Mailbox::get('INBOX')->filterOnDisplay();
 
         if (IMP::canCompose()) {
             $tree->addNode(
