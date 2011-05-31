@@ -22,11 +22,11 @@
   <email>jan@horde.org</email>
   <active>yes</active>
  </lead>
- <date>2011-04-06</date>
- <time>01:17:16</time>
+ <date>2011-05-17</date>
+ <time>07:05:38</time>
  <version>
-  <release>1.0.1</release>
-  <api>1.0.0</api>
+  <release>1.1.0</release>
+  <api>1.1.0</api>
  </version>
  <stability>
   <release>stable</release>
@@ -34,7 +34,9 @@
  </stability>
  <license uri="http://www.gnu.org/copyleft/lesser.html">LGPL</license>
  <notes>
-* 
+* [gwr] Added a script for exporting/importing preferences from/to a backend.
+* [gwr] Added support for listing the scopes in some storage backends.
+* [gwr] Fixed the driver for the Kolab IMAP backend.
  </notes>
  <contents>
   <dir baseinstalldir="/" name="/">
@@ -340,6 +342,7 @@
       <dir name="Unit">
        <dir name="Storage">
         <file name="FileTest.php" role="test" />
+        <file name="KolabImapTest.php" role="test" />
        </dir> <!-- /test/Horde/Prefs/Unit/Storage -->
       </dir> <!-- /test/Horde/Prefs/Unit -->
       <file name="AllTests.php" role="test" />
@@ -392,6 +395,13 @@
   </required>
   <optional>
    <package>
+    <name>Horde_Autoloader</name>
+    <channel>pear.horde.org</channel>
+    <min>1.0.0</min>
+    <max>2.0.0</max>
+    <exclude>2.0.0</exclude>
+   </package>
+   <package>
     <name>Horde_Db</name>
     <channel>pear.horde.org</channel>
     <min>1.0.0</min>
@@ -409,6 +419,13 @@
     <name>Horde_Imsp</name>
     <channel>pear.horde.org</channel>
     <min>1.0.0</min>
+    <max>2.0.0</max>
+    <exclude>2.0.0</exclude>
+   </package>
+   <package>
+    <name>Horde_Kolab_Storage</name>
+    <channel>pear.horde.org</channel>
+    <min>1.1.0</min>
     <max>2.0.0</max>
     <exclude>2.0.0</exclude>
    </package>
@@ -524,6 +541,7 @@
    <install as="Horde/Prefs/Autoload.php" name="test/Horde/Prefs/Autoload.php" />
    <install as="Horde/Prefs/phpunit.xml" name="test/Horde/Prefs/phpunit.xml" />
    <install as="Horde/Prefs/Unit/Storage/FileTest.php" name="test/Horde/Prefs/Unit/Storage/FileTest.php" />
+   <install as="Horde/Prefs/Unit/Storage/KolabImapTest.php" name="test/Horde/Prefs/Unit/Storage/KolabImapTest.php" />
   </filelist>
  </phprelease>
  <changelog>
@@ -661,15 +679,17 @@ Initial release as a PEAR package
   </release>
   <release>
    <version>
-    <release>1.0.1</release>
-    <api>1.0.0</api></version>
+    <release>1.1.0</release>
+    <api>1.1.0</api></version>
    <stability>
     <release>stable</release>
     <api>stable</api></stability>
-   <date>2011-04-06</date>
+   <date>2011-05-17</date>
    <license uri="http://www.gnu.org/copyleft/lesser.html">LGPL</license>
    <notes>
-* 
+* [gwr] Added a script for exporting/importing preferences from/to a backend.
+* [gwr] Added support for listing the scopes in some storage backends.
+* [gwr] Fixed the driver for the Kolab IMAP backend.
    </notes>
   </release>
  </changelog>

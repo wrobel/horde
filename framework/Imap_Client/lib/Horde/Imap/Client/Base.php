@@ -1157,10 +1157,10 @@ abstract class Horde_Imap_Client_Base implements Serializable
      *
      * Flag: Horde_Imap_Client::STATUS_LASTMODSEQUIDS
      *   Return key: 'lastmodsequids'
-     *   Return format: (array) If the server supports the CONDSTORE IMAP
+     *   Return format: (array) If the server supports the QRESYNC IMAP
      *                  extension, this will be the list of UIDs changed in
      *                  the mailbox when it was first opened if HIGHESTMODSEQ
-     *                  changed. Else an empty array if CONDSTORE not
+     *                  changed. Else an empty array if QRESYNC not
      *                  available, the mailbox does not support mod-sequences,
      *                  or the mod-sequence did not change.
      *
@@ -1413,9 +1413,9 @@ abstract class Horde_Imap_Client_Base implements Serializable
             } elseif (is_resource($data['data'])) {
                 $text = '';
                 rewind($data['data']);
-                while ($in = fread($data['data'], 1024)) {
-                    $text .= $in;
-                    if (preg_match("/\n\r*\n\r*/", $text)) {
+                while (!feof($data['data'])) {
+                    $text .= fread($data['data'], 512);
+                    if (preg_match("/\n\r{2,}/", $text)) {
                         break;
                     }
                 }
@@ -2059,11 +2059,6 @@ abstract class Horde_Imap_Client_Base implements Serializable
             $ret = &$options['fetch_res'];
         }
 
-        /* If nothing is cacheable, we can do a straight search. */
-        if (empty($cache_array)) {
-            return $this->_fetch($query, $ret, $options);
-        }
-
         /* If doing a changedsince/vanished search that involves a subset of
          * UIDs, we need to limit the UIDs now. */
         if ((!empty($options['changedsince']) ||
@@ -2083,6 +2078,11 @@ abstract class Horde_Imap_Client_Base implements Serializable
             )));
 
             $options['ids'] = new Horde_Imap_Client_Ids(array_keys($ret), $options['ids']->sequence);
+        }
+
+        /* If nothing is cacheable, we can do a straight search. */
+        if (empty($cache_array)) {
+            return $this->_fetch($query, $ret, $options);
         }
 
         /* Need Seq -> UID lookup if we haven't already grabbed it. */
@@ -2467,9 +2467,10 @@ abstract class Horde_Imap_Client_Base implements Serializable
      * @param array $options     Additional options:
      * <pre>
      * 'remove' - (boolean) If true, removes rights for $identifier.
-     *            DEFAULT: Rights in 'rights' are added.
+     *            DEFAULT: false
      * 'rights' - (string) The rights to alter.
-     *            DEFAULT: No rights are altered.
+     *            DEFAULT: If 'remove' is true, removes all rights. If
+     *            'remove' is false, no rights are altered.
      * </pre>
      *
      * @throws Horde_Imap_Client_Exception
@@ -2480,6 +2481,21 @@ abstract class Horde_Imap_Client_Base implements Serializable
             $this->_exception('Server does not support the ACL extension.', 'NOSUPPORTIMAPEXT');
         }
 
+        if (!empty($options['rights'])) {
+            $acl = ($options['rights'] instanceof Horde_Imap_Client_Data_Acl)
+                ? $options['rights']
+                : new Horde_Imap_Client_Data_Acl(strval($options['rights']));
+
+            $options['rights'] = empty($options['remove'])
+                ? '+'
+                : '-';
+            $options['rights'] .= $acl->getString($this->queryCapability('RIGHTS') ? Horde_Imap_Client_Data_AclCommon::RFC_4314 : Horde_Imap_Client_Data_AclCommon::RFC_2086);
+        }
+
+        if (empty($options['rights']) && empty($options['remove'])) {
+            return;
+        }
+
         return $this->_setACL(Horde_Imap_Client_Utf7imap::Utf8ToUtf7Imap($mailbox), Horde_Imap_Client_Utf7imap::Utf8ToUtf7Imap($identifier), $options);
     }
 
@@ -2488,7 +2504,8 @@ abstract class Horde_Imap_Client_Base implements Serializable
      *
      * @param string $mailbox     A mailbox (UTF7-IMAP).
      * @param string $identifier  The identifier to alter (UTF7-IMAP).
-     * @param array $options      Additional options.
+     * @param array $options      Additional options. 'rights' contains the
+     *                            string of rights to set on the server.
      *
      * @throws Horde_Imap_Client_Exception
      */
@@ -3418,6 +3435,38 @@ abstract class Horde_Imap_Client_Base implements Serializable
         }
 
         return $stream;
+    }
+
+    /**
+     * Parses human-readable response text for response codes.
+     *
+     * @param string $text  The response text.
+     *
+     * @return object  An object with the following properties:
+     *   - code: (string) The response code, if it exists.
+     *   - data: (string) The response code data, if it exists.
+     *   - text: (string) The human-readable response text.
+     */
+    protected function _parseResponseText($text)
+    {
+        $ret = new stdClass;
+
+        $text = trim($text);
+        if ($text[0] == '[') {
+            $pos = strpos($text, ' ', 2);
+            $end_pos = strpos($text, ']', 2);
+            if ($pos > $end_pos) {
+                $ret->code = strtoupper(substr($text, 1, $end_pos - 1));
+            } else {
+                $ret->code = strtoupper(substr($text, 1, $pos - 1));
+                $ret->data = substr($text, $pos + 1, $end_pos - $pos - 1);
+            }
+            $ret->text = trim(substr($text, $end_pos + 1));
+        } else {
+            $ret->text = $text;
+        }
+
+        return $ret;
     }
 
 }

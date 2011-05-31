@@ -309,7 +309,7 @@ class IMP_Compose implements ArrayAccess, Countable, Iterator
                 $GLOBALS['injector']->getInstance('IMP_Message')->delete($old_uid, array('nuke' => true));
             }
 
-            $this->_metadata['draft_uid'] = new IMP_Indices($drafts_mbox, $ids);
+            $this->_metadata['draft_uid'] = $drafts_mbox->getIndicesOb($ids);
             $this->changed = 'changed';
             return sprintf(_("The draft has been saved to the \"%s\" folder."), $drafts_mbox->display);
         } catch (IMP_Imap_Exception $e) {
@@ -1965,9 +1965,6 @@ class IMP_Compose implements ArrayAccess, Countable, Iterator
 
     /**
      * Adds an attachment to a Horde_Mime_Part from an uploaded file.
-     * The actual attachment data is stored in a separate file - the
-     * Horde_Mime_Part information entries 'temp_filename' and 'temp_filetype'
-     * are set with this information.
      *
      * @param string $name  The input field name from the form.
      *
@@ -2427,7 +2424,7 @@ class IMP_Compose implements ArrayAccess, Countable, Iterator
         $baseurl = Horde::url('attachment.php', true)->setRaw(true);
 
         try {
-            $GLOBALS['injector']->getInstance('Horde_Core_Factory_Vfs')->create();
+            $vfs = $GLOBALS['injector']->getInstance('Horde_Core_Factory_Vfs')->create();
         } catch (Horde_Vfs_Exception $e) {
             throw new IMP_Compose_Exception($e);
         }
