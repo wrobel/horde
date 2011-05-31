@@ -1519,9 +1519,9 @@ class IMP_Imap_Tree implements ArrayAccess, Countable, Iterator, Serializable
             $parent = null;
         }
 
-        $mailbox_url = (IMP::getViewMode() == 'mimp')
-            ? Horde::url('mailbox-mimp.php')
-            : Horde::url('mailbox.php');
+        $mailbox_page = (IMP::getViewMode() == 'mimp')
+            ? 'mailbox-mimp.php'
+            : 'mailbox.php';
 
         foreach ($this as $val) {
             $after = '';
@@ -1586,13 +1586,15 @@ class IMP_Imap_Tree implements ArrayAccess, Countable, Iterator, Serializable
             if ($val->container) {
                 $params['container'] = true;
             } else {
-                $params['url'] = $mailbox_url->add('mailbox', $val->value);
+                $params['url'] = $val->url($mailbox_page);
                 if ($this->_showunsub && !$val->sub) {
                     $params['class'] = 'folderunsub';
                 }
             }
 
-            $checkbox = '<input type="checkbox" class="checkbox" name="folder_list[]" value="' . $val->form_to . '"';
+            $checkbox = empty($opts['checkbox'])
+                ? ''
+                : '<input type="checkbox" class="checkbox" name="folder_list[]" value="' . $val->form_to . '"';
 
             if ($val->vfolder) {
                 $checkbox .= ' disabled="disabled"';
@@ -1605,8 +1607,8 @@ class IMP_Imap_Tree implements ArrayAccess, Countable, Iterator, Serializable
             }
 
             $tree->addNode(
-                strval($parent) . $val->value,
-                ($val->level) ? strval($parent) . $val->parent : $parent,
+                $val->form_to,
+                ($val->level) ? IMP_Mailbox::get($val->parent)->form_to : $parent,
                 $label,
                 $val->level,
                 $is_open,
@@ -1778,12 +1780,12 @@ class IMP_Imap_Tree implements ArrayAccess, Countable, Iterator, Serializable
                         $this->_currkey = null;
                     }
                 } else {
-                    $this->_currparent = $tmp->parent;
-                    $this->_currkey = array_search($tmp->value, $this->_parent[$tmp->parent]);
+                    $this->_currparent = strval($tmp->parent);
+                    $this->_currkey = array_search($tmp->value, $this->_parent[$this->_currparent]);
 
                     if ($c['mask'] & self::FLIST_SAMELEVEL) {
                         $this->_currkey = 0;
-                        $c['samelevel'] = $tmp->parent;
+                        $c['samelevel'] = $this->_currparent;
                     }
                 }
             } else {
@@ -1903,7 +1905,7 @@ class IMP_Imap_Tree implements ArrayAccess, Countable, Iterator, Serializable
             return null;
         }
 
-        $p = $this[$parent]->parent;
+        $p = strval($this[$parent]->parent);
 
         return array(
             $p,
