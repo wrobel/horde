@@ -107,7 +107,8 @@ class Horde_Core_Factory_Prefs extends Horde_Core_Factory_Base
                     ->getInstance('Horde_Db_Adapter');
                 break;
             case 'Horde_Prefs_Storage_KolabImap':
-                if ($GLOBALS['registry']->isAdmin()) {
+                if ($GLOBALS['registry']->isAdmin() &&
+                    !empty($params['noadmin'])) {
                     throw new Horde_Exception('The IMAP based Kolab preferences backend is unavailable for system administrators.');
                 }
                 $params['kolab'] = $this->_injector

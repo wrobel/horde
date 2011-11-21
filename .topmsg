@@ -1,0 +1,8 @@
+From: Gunnar Wrobel <p@rdus.de>
+Subject: [PATCH] t/framework/Core/Kolab-Manager-Prefs-If-No-IMAP
+
+Gracefully handle the situation where the user logging in does exist
+in LDAP but not in IMAP. This should be supported in a better way by
+detecting the missing INBOX.
+
+Signed-off-by: Gunnar Wrobel <p@rdus.de>
