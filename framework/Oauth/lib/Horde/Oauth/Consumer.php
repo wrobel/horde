@@ -66,7 +66,11 @@ class Horde_Oauth_Consumer
         $request = new Horde_Oauth_Request($this->requestTokenUrl, $params);
         $request->sign($this->signatureMethod, $this);
 
-        $client = new Horde_Http_Client;
+        if ($this->client === null) {
+            $client = new Horde_Http_Client;
+        } else {
+            $client = $this->client;
+        }
 
         try {
             $response = $client->post(
@@ -74,9 +78,9 @@ class Horde_Oauth_Consumer
                 $request->buildHttpQuery()
             );
         } catch (Horde_Http_Exception $e) {
-            throw new Horde_Oauth_Exception($e->getMessage());
+            throw new Horde_Oauth_Exception($e);
         }
-
+        var_dump($response->getBody());
         return Horde_Oauth_Token::fromString($response->getBody());
     }
 

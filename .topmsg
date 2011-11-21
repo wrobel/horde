@@ -1,0 +1,8 @@
+From: Gunnar Wrobel <p@rdus.de>
+Subject: [PATCH] t/framework/Oauth/Minor-fixes
+
+Some fixes for the Oauth package when I took a closer look. Didn't
+find the time to work more on this package. This should get closer to
+upstream again.
+
+Signed-off-by: Gunnar Wrobel <p@rdus.de>

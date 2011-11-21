@@ -183,9 +183,9 @@ class Horde_Oauth_Request
     {
         $parts = parse_url($this->_url);
 
-        $port = !empty($parts['port']) ? $parts['port'] : '80';
-        $scheme = $parts['scheme'];
-        $host = $parts['host'];
+        $scheme = !empty($parts['scheme']) ? $parts['scheme'] : 'http';
+        $port = !empty($parts['port']) ? $parts['port'] : (($scheme == 'https') ? '443' : '80');
+        $host = !empty($parts['host']) ? strtolower($parts['host']) : '';
         $path = !empty($parts['path']) ? $parts['path'] : '';
 
         if (($scheme == 'https' && $port != '443') ||
